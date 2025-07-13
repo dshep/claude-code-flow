@@ -7,6 +7,7 @@ import { generateId } from '../../utils/helpers.js';
 import { promises as fs } from 'node:fs';
 import { success, error, warning, info } from '../cli-core.js';
 import type { CommandContext } from "../cli-core.js";
+import type { SwarmStrategy } from '../../swarm/types.js';
 import { BackgroundExecutor } from '../../coordination/background-executor.js';
 import { SwarmCoordinator } from '../../coordination/swarm-coordinator.js';
 import { SwarmMemoryManager } from '../../memory/swarm-memory.js';
@@ -161,7 +162,7 @@ export async function swarmAction(ctx: CommandContext) {
     await Deno.mkdir(swarmDir, { recursive: true });
 
     // Create objective in coordinator
-    const objectiveId = await coordinator.createObjective(objective, options.strategy);
+    const objectiveId = await coordinator.createObjective(objective, options.strategy as SwarmStrategy);
     
     console.log(`\n📝 Objective created with ID: ${objectiveId}`);
 

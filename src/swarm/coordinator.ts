@@ -3,6 +3,7 @@ import { EventEmitter } from 'events';
 import { promises as fs } from 'node:fs';
 import { Logger } from '../core/logger.js';
 import { generateId } from '../utils/helpers.js';
+import * as Deno from '../utils/node-compat.js';
 import {
   SwarmId, AgentId, TaskId, AgentState, TaskDefinition, SwarmObjective,
   SwarmConfig, SwarmStatus, SwarmProgress, SwarmResults, SwarmMetrics,
@@ -1360,10 +1361,15 @@ export class SwarmCoordinator extends EventEmitter implements SwarmEventEmitter 
     return endTime.getTime() - this.startTime.getTime();
   }
 
-  getSwarmStatus(): { status: SwarmStatus; objectives: number; tasks: { completed: number; failed: number; total: number }; agents: { total: number } } {
+  getSwarmStatus(): { status: SwarmStatus; objectives: number; tasks: { completed: number; failed: number; total: number; inProgress: number; pending: number }; agents: { total: number; active: number } } {
     const tasks = Array.from(this.tasks.values());
     const completedTasks = tasks.filter(t => t.status === 'completed').length;
     const failedTasks = tasks.filter(t => t.status === 'failed').length;
+    const inProgressTasks = tasks.filter(t => t.status === 'in_progress').length;
+    const pendingTasks = tasks.filter(t => t.status === 'pending').length;
+    
+    const agents = Array.from(this.agents.values());
+    const activeAgents = agents.filter(a => a.status === 'active').length;
     
     return {
       status: this.status,
@@ -1371,10 +1377,13 @@ export class SwarmCoordinator extends EventEmitter implements SwarmEventEmitter 
       tasks: {
         completed: completedTasks,
         failed: failedTasks,
-        total: tasks.length
+        total: tasks.length,
+        inProgress: inProgressTasks,
+        pending: pendingTasks
       },
       agents: {
-        total: this.agents.size
+        total: this.agents.size,
+        active: activeAgents
       }
     };
   }

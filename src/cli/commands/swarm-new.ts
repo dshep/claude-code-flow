@@ -759,8 +759,8 @@ Agents: ${status.agents.active}/${status.agents.total} active
     } catch (error) {
       // Write error to debug file but don't disrupt swarm
       try {
-        await fs.writeFile(`${swarmDir}/update-errors.log`, 
-          `${new Date().toISOString()}: ${(error instanceof Error ? error.message : String(error))}\n`, { append: true });
+        await fs.appendFile(`${swarmDir}/update-errors.log`, 
+          `${new Date().toISOString()}: ${(error instanceof Error ? error.message : String(error))}\n`);
       } catch (e) {
         // Ignore file write errors
       }
@@ -817,7 +817,7 @@ function setupSwarmMonitoring(
         }
       };
       
-      await fs.writeFile(metricsFile, JSON.stringify(metrics) + '\n', { append: true });
+      await fs.appendFile(metricsFile, JSON.stringify(metrics) + '\n');
     } catch (error) {
       console.warn('Failed to collect metrics:', (error instanceof Error ? error.message : String(error)));
     }
@@ -949,6 +949,17 @@ async function showSwarmResults(
   } catch (e) {
     // Ignore errors in file checking
   }
+}
+
+async function launchClaudeCodeWithSwarm(objective: string, options: any): Promise<void> {
+  info(`🐝 Launching Claude Code with swarm coordination...`);
+  info(`📋 Objective: ${objective}`);
+  
+  // For now, provide the user with a command to run
+  console.log('\n🚀 Run this command to start Claude Code with swarm coordination:');
+  console.log('   claude mcp add ruv-swarm npx ruv-swarm mcp start');
+  console.log('   npx claude-code');
+  console.log('\n💡 Then use the swarm tools in Claude Code to coordinate tasks.');
 }
 
 async function launchSwarmUI(objective: string, options: any): Promise<void> {

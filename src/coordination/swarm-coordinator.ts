@@ -45,7 +45,7 @@ export interface SwarmTask {
 export interface SwarmObjective {
   id: string;
   description: string;
-  strategy: 'auto' | 'research' | 'development' | 'analysis';
+  strategy: 'auto' | 'research' | 'development' | 'analysis' | 'testing' | 'optimization' | 'maintenance' | 'custom';
   tasks: SwarmTask[];
   status: 'planning' | 'executing' | 'completed' | 'failed';
   createdAt: Date;

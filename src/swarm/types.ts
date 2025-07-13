@@ -351,6 +351,9 @@ export interface TaskDefinition {
   // History
   attempts: TaskAttempt[];
   statusHistory: TaskStatusChange[];
+  
+  // Additional metadata
+  metadata?: Record<string, any>;
 }
 
 export interface TaskAttempt {

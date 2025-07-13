@@ -1,4 +1,4 @@
-#!/usr/bin/env -S deno run --allow-all
+#!/usr/bin/env node
 import { getErrorMessage } from '../utils/error-handler.js';
 /**
  * Claude-Flow CLI entry point
@@ -12,6 +12,7 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import { logger } from '../core/logger.js';
 import { configManager } from '../core/config.js';
+import * as Deno from '../utils/node-compat.js';
 import { startCommand } from './commands/start.js';
 import { agentCommand } from './commands/agent.js';
 import { taskCommand } from './commands/task.js';
@@ -36,19 +37,15 @@ const cli = new Command()
   .name('claude-flow')
   .version(VERSION)
   .description('Claude-Flow: Advanced AI agent orchestration system for multi-agent coordination')
-  .meta('Build', BUILD_DATE)
-  .meta('Runtime', 'Deno')
-  .globalOption('-c, --config <path:string>', 'Path to configuration file', {
-    default: './claude-flow.config.json',
-  })
-  .globalOption('-v, --verbose', 'Enable verbose logging')
-  .globalOption('-q, --quiet', 'Suppress non-essential output')
-  .globalOption('--log-level <level:string>', 'Set log level (debug, info, warn, error)', {
-    default: 'info',
-  })
-  .globalOption('--no-color', 'Disable colored output')
-  .globalOption('--json', 'Output in JSON format where applicable')
-  .globalOption('--profile <profile:string>', 'Use named configuration profile')
+  // .meta('Build', BUILD_DATE)   // Not available in commander.js
+  // .meta('Runtime', 'Deno')
+  .option('-c, --config <path>', 'Path to configuration file', './claude-flow.config.json')
+  .option('-v, --verbose', 'Enable verbose logging')
+  .option('-q, --quiet', 'Suppress non-essential output')
+  .option('--log-level <level>', 'Set log level (debug, info, warn, error)', 'info')
+  .option('--no-color', 'Disable colored output')
+  .option('--json', 'Output in JSON format where applicable')
+  .option('--profile <profile>', 'Use named configuration profile')
   .action(async (options: any) => {
     // If no subcommand, show banner and start REPL
     await setupLogging(options);
@@ -62,50 +59,53 @@ const cli = new Command()
   });
 
 // Add subcommands
-cli
-  .command('start', startCommand)
-  .command('agent', agentCommand)
-  .command('task', taskCommand)
-  .command('memory', memoryCommand)
-  .command('config', configCommand)
-  .command('status', statusCommand)
-  .command('monitor', monitorCommand)
-  .command('session', sessionCommand)
-  .command('workflow', workflowCommand)
-  .command('mcp', mcpCommand)
-  .command('help', helpCommand)
-  .command('repl', new Command()
-    .description('Start interactive REPL mode with command completion')
-    .option('--no-banner', 'Skip welcome banner')
-    .option('--history-file <path:string>', 'Custom history file path')
-    .action(async (options: any) => {
-      await setupLogging(options);
-      if (options.banner !== false) {
-        displayBanner(VERSION);
-      }
-      await startREPL(options);
-    }),
-  )
-  .command('version', new Command()
-    .description('Show detailed version information')
-    .option('--short', 'Show version number only')
-    .action(async (options: any) => {
-      if (options.short) {
-        console.log(VERSION);
-      } else {
-        displayVersion(VERSION, BUILD_DATE);
-      }
-    }),
-  )
-  .command('completion', new Command()
-    .description('Generate shell completion scripts')
-    .arguments('[shell:string]')
-    .option('--install', 'Install completion script automatically')
-    .action(async (options: any, shell: any) => {
-      const generator = new CompletionGenerator();
-      await generator.generate(shell || 'detect', options.install === true);
-    }),
-  );
+cli.addCommand(startCommand);
+cli.addCommand(agentCommand);
+cli.addCommand(taskCommand);
+cli.addCommand(memoryCommand);
+cli.addCommand(configCommand);
+cli.addCommand(statusCommand);
+cli.addCommand(monitorCommand);
+cli.addCommand(sessionCommand);
+cli.addCommand(workflowCommand);
+cli.addCommand(mcpCommand);
+cli.addCommand(helpCommand);
+
+const replCommand = new Command('repl')
+  .description('Start interactive REPL mode with command completion')
+  .option('--no-banner', 'Skip welcome banner')
+  .option('--history-file <path>', 'Custom history file path')
+  .action(async (options: any) => {
+    await setupLogging(options);
+    if (options.banner !== false) {
+      displayBanner(VERSION);
+    }
+    await startREPL(options);
+  });
+
+const versionCommand = new Command('version')
+  .description('Show detailed version information')
+  .option('--short', 'Show version number only')
+  .action(async (options: any) => {
+    if (options.short) {
+      console.log(VERSION);
+    } else {
+      displayVersion(VERSION, BUILD_DATE);
+    }
+  });
+
+const completionCommand = new Command('completion')
+  .description('Generate shell completion scripts')
+  .argument('[shell]', 'Shell type')
+  .option('--install', 'Install completion script automatically')
+  .action(async (shell: any, options: any) => {
+    const generator = new CompletionGenerator();
+    await generator.generate(shell || 'detect', options.install === true);
+  });
+
+cli.addCommand(replCommand);
+cli.addCommand(versionCommand);
+cli.addCommand(completionCommand);
 
 // Global error handler
 async function handleError(error: unknown, options?: any): Promise<void> {
@@ -186,7 +186,7 @@ function setupSignalHandlers(): void {
 }
 
 // Main entry point
-if (import.meta.main) {
+if (process.argv[1] === import.meta.url) {
   let globalOptions: any = {};
   
   try {
@@ -204,7 +204,7 @@ if (import.meta.main) {
     
     // Configure colors based on options
     if (globalOptions.noColor) {
-      colors.setColorEnabled(false);
+      // colors.setColorEnabled(false); // TODO: Fix colors import
     }
     
     await cli.parse(args);

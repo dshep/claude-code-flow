@@ -1,4 +1,4 @@
-#!/usr/bin/env -S deno run --allow-all
+#!/usr/bin/env node
 import { getErrorMessage } from '../utils/error-handler.js';
 /**
  * Simple CLI wrapper for Claude-Flow (JavaScript version)
@@ -13,7 +13,9 @@ import {
   showAllCommands,
   listCommands 
 } from './command-registry.js';
+// @ts-ignore
 import { parseFlags } from './utils.js';
+import * as Deno from '../utils/node-compat.js';
 
 const VERSION = '2.0.0';
 
@@ -165,7 +167,7 @@ function showHelpWithCommands() {
   console.log('\nRegistered Commands:');
   const commands = listCommands();
   for (const command of commands) {
-    console.log(`  ${command.name.padEnd(12)} ${command.description}`);
+    console.log(`  ${command.padEnd(12)}`);
   }
   console.log('\nUse "claude-flow help <command>" for detailed usage information');
 }
@@ -203,7 +205,7 @@ async function main() {
   // Check if this is a registered modular command
   if (hasCommand(command)) {
     try {
-      await executeCommand(command, parsedArgs, flags);
+      await executeCommand(command, [...parsedArgs, ...Object.entries(flags).flatMap(([k, v]) => v === true ? [`--${k}`] : [`--${k}`, v])]);
       return;
     } catch (err: unknown) {
       printError((err as Error).message);
@@ -369,7 +371,7 @@ async function main() {
           
         case 'batch-exec':
           // Batch command execution
-          const batchSession = subArgs.find(arg => !arg.startsWith('--'));
+          const batchSession = subArgs.find((arg: string) => !arg.startsWith('--'));
           const commandsFlag = subArgs.indexOf('--commands');
           const fileFlag = subArgs.indexOf('--file');
           
@@ -455,7 +457,7 @@ async function main() {
           
         case 'cleanup':
           // Cleanup idle terminals
-          const idleTime = subArgs.find(arg => arg.includes('--idle-longer-than'));
+          const idleTime = subArgs.find((arg: string) => arg.includes('--idle-longer-than'));
           printSuccess('Cleaning up idle terminals...');
           console.log('🧹 Scanning for idle sessions');
           if (idleTime) {
@@ -506,7 +508,7 @@ async function main() {
         case 'share':
           // Share terminal session
           const shareId = subArgs[1];
-          const accessLevel = subArgs.find(arg => arg.includes('--access-level'));
+          const accessLevel = subArgs.find((arg: string) => arg.includes('--access-level'));
           if (shareId) {
             printSuccess(`Sharing terminal session: ${shareId}`);
             console.log(`🔗 Share URL: https://claude-flow.local/terminal/${shareId}/view`);
@@ -521,7 +523,7 @@ async function main() {
           // Multi-terminal configuration
           const multiCmd = subArgs[1];
           if (multiCmd === 'create') {
-            const configName = subArgs.find(arg => !arg.startsWith('--'));
+            const configName = subArgs.find((arg: string) => !arg.startsWith('--'));
             printSuccess(`Creating multi-terminal configuration: ${configName || 'default'}`);
             console.log('📋 Configuration template created');
           } else {
@@ -546,7 +548,7 @@ async function main() {
           
         case 'batch-create':
           // Batch create terminals
-          const configFile = subArgs.find(arg => arg.includes('--config'));
+          const configFile = subArgs.find((arg: string) => arg.includes('--config'));
           printSuccess('Creating multiple terminal sessions...');
           if (configFile) {
             console.log(`📄 Loading config from: ${configFile.split('=')[1]}`);
@@ -1193,7 +1195,7 @@ async function main() {
           }
           
           // Parse flags
-          const flags = {};
+          const flags: any = {};
           for (let i = taskEndIndex; i < subArgs.length; i++) {
             const arg = subArgs[i];
             if (arg === '--tools' || arg === '-t') {
@@ -1417,13 +1419,12 @@ ${flags.mode === 'full' || !flags.mode ? `Full-stack development covering all as
                 stderr: 'inherit',
               });
               
-              const child = command.spawn();
-              const status = await child.status;
+              const result = await command.output();
               
-              if (status.success) {
+              if (result.code === 0) {
                 printSuccess(`Claude instance ${instanceId} completed successfully`);
               } else {
-                printError(`Claude instance ${instanceId} exited with code ${status.code}`);
+                printError(`Claude instance ${instanceId} exited with code ${result.code}`);
               }
             } catch (err: unknown) {
               printError(`Failed to spawn Claude: ${(err as Error).message}`);
@@ -1456,9 +1457,9 @@ ${flags.mode === 'full' || !flags.mode ? `Full-stack development covering all as
       const deployCmd = subArgs[0];
       switch (deployCmd) {
         case 'ha-cluster':
-          const nodes = subArgs.find(arg => arg.includes('--nodes'));
-          const regions = subArgs.find(arg => arg.includes('--regions'));
-          const replicationFactor = subArgs.find(arg => arg.includes('--replication-factor'));
+          const nodes = subArgs.find((arg: string) => arg.includes('--nodes'));
+          const regions = subArgs.find((arg: string) => arg.includes('--regions'));
+          const replicationFactor = subArgs.find((arg: string) => arg.includes('--replication-factor'));
           
           printSuccess('Deploying High Availability Cluster...');
           console.log('🏗️  HA Configuration:');
@@ -2035,19 +2036,19 @@ async function startRepl() {
   console.log('Type "help" for available commands, "exit" to quit\n');
   
   const replState = {
-    history: [],
+    history: [] as string[],
     historyIndex: -1,
     currentSession: null,
     context: {
-      agents: [],
-      tasks: [],
-      terminals: [],
-      memory: {}
+      agents: [] as any[],
+      tasks: [] as any[],
+      terminals: [] as any[],
+      memory: {} as Record<string, any>
     }
   };
   
   // REPL command handlers
-  const replCommands = {
+  const replCommands: Record<string, (...args: any[]) => void | Promise<void>> = {
     help: () => {
       console.log(`
 📚 Available REPL Commands:
@@ -2112,7 +2113,7 @@ Shortcuts:
     
     config: async (key: string) => {
       try {
-        const config = JSON.parse(await fs.readFile('claude-flow.config.json'));
+        const config = JSON.parse(await fs.readFile('claude-flow.config.json', 'utf8'));
         if (key) {
           const keys = key.split('.');
           let value = config;
@@ -3229,6 +3230,7 @@ For more information about SPARC methodology, see: https://github.com/ruvnet/cla
 `;
 }
 
-if (import.meta.main) {
-  await main();
+// Check if this is the main module
+if (process.argv[1] === import.meta.url.replace('file://', '')) {
+  main().catch(console.error);
 }

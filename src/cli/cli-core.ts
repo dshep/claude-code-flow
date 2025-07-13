@@ -5,8 +5,8 @@ import { getErrorMessage } from '../utils/error-handler.js';
  */
 
 import chalk from "chalk";
-import fs from "fs-extra";
-import path from "path";
+import * as fs from "fs-extra";
+import * as path from "path";
 
 export const VERSION = "1.0.43";
 
@@ -72,7 +72,7 @@ class CLI {
 
   command(cmd: Command): this {
     // Handle both our Command interface and Commander.js Command objects
-    const cmdName = typeof cmd.name === 'function' ? cmd.name() : cmd.name;
+    const cmdName = typeof cmd.name === 'function' ? (cmd.name as () => string)() : cmd.name;
     this.commands.set(cmdName, cmd);
     if (cmd.aliases && typeof cmd.aliases[Symbol.iterator] === 'function') {
       for (const alias of cmd.aliases) {

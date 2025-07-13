@@ -1,10 +1,11 @@
 import { getErrorMessage } from '../../../utils/error-handler.js';
 import { promises as fs } from 'node:fs';
+import * as Deno from '../../../utils/node-compat.js';
 /**
  * Unified start command implementation with robust service management
  */
 
-import { Command } from '@cliffy/command';
+import { Command } from 'commander';
 import chalk from 'chalk';
 import inquirer from 'inquirer';
 import { ProcessManager } from './process-manager.js';
@@ -18,17 +19,15 @@ import { formatDuration } from '../../formatter.js';
 export const startCommand = new Command()
   .description('Start the Claude-Flow orchestration system')
   .option('-d, --daemon', 'Run as daemon in background')
-  .option('-p, --port <port:number>', 'MCP server port', { default: 3000 })
-  .option('--mcp-transport <transport:string>', 'MCP transport type (stdio, http)', {
-    default: 'stdio',
-  })
+  .option('-p, --port <port>', 'MCP server port', '3000')
+  .option('--mcp-transport <transport>', 'MCP transport type (stdio, http)', 'stdio')
   .option('-u, --ui', 'Launch interactive process management UI')
   .option('-v, --verbose', 'Enable verbose logging')
   .option('--auto-start', 'Automatically start all processes')
   .option('--config <path:string>', 'Configuration file path')
   .option('--force', 'Force start even if already running')
   .option('--health-check', 'Perform health checks before starting')
-  .option('--timeout <seconds:number>', 'Startup timeout in seconds', { default: 60 })
+  .option('--timeout <seconds>', 'Startup timeout in seconds', '60')
   .action(async (options: StartOptions) => {
     console.log(chalk.cyan('🧠 Claude-Flow Orchestration System'));
     console.log(chalk.gray('─'.repeat(60)));

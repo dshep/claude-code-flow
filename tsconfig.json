@@ -5,6 +5,7 @@
     "moduleResolution": "NodeNext",
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
+    "downlevelIteration": true,
     "allowJs": false,
     "checkJs": false,
     "skipLibCheck": true,
@@ -48,8 +49,7 @@
     "src/**/*.js",
     "tests/**/*",
     "deno_modules",
-    "bin",
-    "src/terminal/vscode-bridge.ts"
+    "bin"
   ],
   "ts-node": {
     "esm": true,

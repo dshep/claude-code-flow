@@ -5,6 +5,7 @@ import { getErrorMessage } from '../../../utils/error-handler.js';
 
 import { EventEmitter } from './event-emitter.js';
 import chalk from 'chalk';
+import * as Deno from '../../../utils/node-compat.js';
 import { 
   ProcessInfo, 
   ProcessType, 
