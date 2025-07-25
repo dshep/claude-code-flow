@@ -11,7 +11,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 let Database = null;
-let sqliteAvailable = false;
+let sqliteAvailable = null;  // null = not yet determined, true/false = determined
 let loadError = null;
 
 /**
