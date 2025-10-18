@@ -158,6 +158,7 @@ memory/agents/*
 coordination/memory_bank/*
 coordination/subtasks/*
 coordination/orchestration/*
+.claude-flow/metrics/
 *.db
 *.db-journal
 *.db-wal
