@@ -531,7 +531,7 @@ class ClaudeFlowMCPServer {
       // Additional Memory Tools
       memory_analytics: {
         name: 'memory_analytics',
-        description: 'Analyze memory usage',
+        description: 'Analyze MCP server process memory usage (Node.js heap, RSS, etc.)',
         inputSchema: { type: 'object', properties: { timeframe: { type: 'string' } } },
       },
 
