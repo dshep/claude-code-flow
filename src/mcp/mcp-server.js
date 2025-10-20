@@ -11,6 +11,10 @@ import { fileURLToPath } from 'url';
 import { EnhancedMemory } from '../memory/enhanced-memory.js';
 // Use the same memory system that npx commands use - singleton instance
 import { memoryStore } from '../memory/fallback-store.js';
+// Import CLI implementations for MCP tools
+import { configCommand } from '../cli/simple-commands/config.js';
+import { detectExecutionEnvironment, getEnvironmentDescription } from '../cli/utils/environment-detector.ts';
+import { RuntimeDetector } from '../cli/runtime-detector.js';
 
 // Initialize agent tracker
 await import('./implementations/agent-tracker.js').catch(() => {
@@ -868,15 +872,6 @@ class ClaudeFlowMCPServer {
       },
 
       // System & Utilities Tools
-      terminal_execute: {
-        name: 'terminal_execute',
-        description: 'Execute terminal commands',
-        inputSchema: {
-          type: 'object',
-          properties: { command: { type: 'string' }, args: { type: 'array' } },
-          required: ['command'],
-        },
-      },
       config_manage: {
         name: 'config_manage',
         description: 'Configuration management',
@@ -1974,7 +1969,74 @@ class ClaudeFlowMCPServer {
           error: 'Performance monitor not initialized',
           timestamp: new Date().toISOString(),
         };
-        
+
+      // SDK Integration Tools (Phase 4) - Real CLI implementations
+      case 'config_manage':
+        try {
+          // Create a mock output buffer to capture CLI output
+          let output = '';
+          const originalLog = console.log;
+          const originalError = console.error;
+          console.log = (...msgs) => { output += msgs.join(' ') + '\n'; };
+          console.error = (...msgs) => { output += msgs.join(' ') + '\n'; };
+
+          // Call real CLI implementation
+          await configCommand([args.action], args);
+
+          // Restore console
+          console.log = originalLog;
+          console.error = originalError;
+
+          return {
+            success: true,
+            action: args.action,
+            output: output.trim(),
+            timestamp: new Date().toISOString(),
+          };
+        } catch (error) {
+          return {
+            success: false,
+            error: `Configuration management failed: ${error.message}`,
+            timestamp: new Date().toISOString(),
+          };
+        }
+
+      case 'features_detect':
+        try {
+          // Use real environment detection from CLI
+          const envInfo = detectExecutionEnvironment({ skipWarnings: true });
+          const runtimeInfo = RuntimeDetector.getPlatform();
+
+          return {
+            success: true,
+            environment: {
+              ...envInfo,
+              description: getEnvironmentDescription(envInfo),
+            },
+            runtime: {
+              type: RuntimeDetector.getRuntime(),
+              platform: runtimeInfo.os,
+              arch: runtimeInfo.arch,
+              target: runtimeInfo.target,
+              isNode: RuntimeDetector.isNode(),
+              isDeno: RuntimeDetector.isDeno(),
+            },
+            features: {
+              wasm: RuntimeDetector.hasAPI('node') || RuntimeDetector.hasAPI('deno'),
+              fs: RuntimeDetector.hasAPI('fs'),
+              process: RuntimeDetector.hasAPI('process'),
+            },
+            component: args.component || 'all',
+            timestamp: new Date().toISOString(),
+          };
+        } catch (error) {
+          return {
+            success: false,
+            error: `Feature detection failed: ${error.message}`,
+            timestamp: new Date().toISOString(),
+          };
+        }
+
       default:
         return {
           success: true,
