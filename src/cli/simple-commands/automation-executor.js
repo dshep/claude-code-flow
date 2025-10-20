@@ -113,11 +113,10 @@ export class WorkflowExecutor {
         console.log();
       }
 
-      // Display final workflow variables (after merging)
-      if (workflowData.variables && Object.keys(workflowData.variables).length > 0 && this.options.logLevel !== 'quiet') {
-        const mergedVars = { ...workflowData.variables, ...variables };
+      // Display final workflow variables (after preprocessing and merging)
+      if (processedWorkflow.variables && Object.keys(processedWorkflow.variables).length > 0 && this.options.logLevel !== 'quiet') {
         console.log(`🎯 Workflow Variables (final):`);
-        for (const [key, value] of Object.entries(mergedVars)) {
+        for (const [key, value] of Object.entries(processedWorkflow.variables)) {
           const displayValue = typeof value === 'string' && value.length > 80
             ? value.substring(0, 80) + '...'
             : typeof value === 'object'
