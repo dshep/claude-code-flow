@@ -577,10 +577,10 @@ ${index + 1}. ${agent.name} (${agent.type})
 
 You MUST coordinate these agents using Claude's concurrent execution capabilities:
 
-1. **USE TASK TOOL FOR CONCURRENT AGENTS**: 
+1. **USE TASK TOOL FOR CONCURRENT AGENTS**:
    For each sub-agent, use the Task tool to spawn them with detailed prompts:
-   
-   Task("You are ${agent.name}. ${detailed_role_prompt}", "${agent.id}", "agent-${agent.type}")
+
+   Task("You are \${agent.name}. \${detailed_role_prompt}", "\${agent.id}", "agent-\${agent.type}")
 
 2. **PARALLEL EXECUTION PATTERN**:
    Execute multiple agents simultaneously using the Task tool in a single response:
