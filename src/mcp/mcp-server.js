@@ -13,7 +13,7 @@ import { EnhancedMemory } from '../memory/enhanced-memory.js';
 import { getUnifiedMemory } from '../memory/unified-memory-manager.js';
 // Import CLI implementations for MCP tools
 import { configCommand } from '../cli/simple-commands/config.js';
-import { detectExecutionEnvironment, getEnvironmentDescription } from '../cli/utils/environment-detector.ts';
+import { detectExecutionEnvironment, getEnvironmentDescription } from '../cli/utils/environment-detector.js';
 import { RuntimeDetector } from '../cli/runtime-detector.js';
 
 // Initialize agent tracker
