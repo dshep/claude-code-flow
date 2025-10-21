@@ -46,8 +46,8 @@ for (const arg of args) {
 // Try to find the best runtime and execute
 async function main() {
   try {
-    // Try JavaScript version first (most reliable)
-    const jsFile = join(ROOT_DIR, 'src', 'cli', 'simple-cli.js');
+    // Try built JavaScript version first (most reliable)
+    const jsFile = join(ROOT_DIR, 'dist-cjs', 'src', 'cli', 'simple-cli.js');
     if (existsSync(jsFile)) {
       const child = spawn('node', [jsFile, ...args], {
         stdio: 'inherit',
