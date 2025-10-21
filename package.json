@@ -107,7 +107,6 @@
     "bin/claude-flow-swarm-monitor",
     "bin/claude-flow-swarm-ui",
     "dist/",
-    "dist-cjs/",
     "src/",
     ".claude/",
     "docs/",
