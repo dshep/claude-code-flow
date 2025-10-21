@@ -46,9 +46,15 @@ for (const arg of args) {
 // Try to find the best runtime and execute
 async function main() {
   try {
-    // Try built JavaScript version first (most reliable)
-    const jsFile = join(ROOT_DIR, 'dist-cjs', 'src', 'cli', 'simple-cli.js');
-    if (existsSync(jsFile)) {
+    // Try built CommonJS version first (most reliable for production)
+    // Falls back to source TypeScript if built files not available
+    const cjsFile = join(ROOT_DIR, 'dist-cjs', 'src', 'cli', 'simple-cli.js');
+    const srcFile = join(ROOT_DIR, 'src', 'cli', 'simple-cli.js');
+
+    // Prefer dist-cjs if available (production), otherwise use src (development)
+    const jsFile = existsSync(cjsFile) ? cjsFile : (existsSync(srcFile) ? srcFile : null);
+
+    if (jsFile) {
       const child = spawn('node', [jsFile, ...args], {
         stdio: 'inherit',
         shell: false,
