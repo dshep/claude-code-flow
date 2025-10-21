@@ -141,6 +141,14 @@ hive-mind-prompt-*.txt
 hive-mind-prompt-*.txt
 .research/
 
+
+# Removed Windows wrapper files per user request
+hive-mind-prompt-*.txt
+
+# SPARC/Roo files (not used)
+.roo/
+.roomodes
+
 # Claude Flow generated files
 .claude-flow/metrics
 .claude/settings.local.json
@@ -169,7 +177,3 @@ coordination/orchestration/*
 claude-flow
 # Removed Windows wrapper files per user request
 hive-mind-prompt-*.txt
-
-# SPARC/Roo files (not used)
-.roo/
-.roomodes
