@@ -2,6 +2,9 @@
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { memoryStore } from '../memory/fallback-store.js';
+import { configCommand } from '../cli/simple-commands/config.js';
+import { detectExecutionEnvironment, getEnvironmentDescription } from '../cli/utils/environment-detector.js';
+import { RuntimeDetector } from '../cli/runtime-detector.js';
 await import('./implementations/agent-tracker.js').catch(()=>{
     try {
         require('./implementations/agent-tracker');
@@ -1478,24 +1481,6 @@ let ClaudeFlowMCPServer = class ClaudeFlowMCPServer {
                     ]
                 }
             },
-            terminal_execute: {
-                name: 'terminal_execute',
-                description: 'Execute terminal commands',
-                inputSchema: {
-                    type: 'object',
-                    properties: {
-                        command: {
-                            type: 'string'
-                        },
-                        args: {
-                            type: 'array'
-                        }
-                    },
-                    required: [
-                        'command'
-                    ]
-                }
-            },
             config_manage: {
                 name: 'config_manage',
                 description: 'Configuration management',
@@ -2581,6 +2566,70 @@ let ClaudeFlowMCPServer = class ClaudeFlowMCPServer {
                     error: 'Performance monitor not initialized',
                     timestamp: new Date().toISOString()
                 };
+            case 'config_manage':
+                try {
+                    let output = '';
+                    const originalLog = console.log;
+                    const originalError = console.error;
+                    console.log = (...msgs)=>{
+                        output += msgs.join(' ') + '\n';
+                    };
+                    console.error = (...msgs)=>{
+                        output += msgs.join(' ') + '\n';
+                    };
+                    await configCommand([
+                        args.action
+                    ], args);
+                    console.log = originalLog;
+                    console.error = originalError;
+                    return {
+                        success: true,
+                        action: args.action,
+                        output: output.trim(),
+                        timestamp: new Date().toISOString()
+                    };
+                } catch (error) {
+                    return {
+                        success: false,
+                        error: `Configuration management failed: ${error.message}`,
+                        timestamp: new Date().toISOString()
+                    };
+                }
+            case 'features_detect':
+                try {
+                    const envInfo = detectExecutionEnvironment({
+                        skipWarnings: true
+                    });
+                    const runtimeInfo = RuntimeDetector.getPlatform();
+                    return {
+                        success: true,
+                        environment: {
+                            ...envInfo,
+                            description: getEnvironmentDescription(envInfo)
+                        },
+                        runtime: {
+                            type: RuntimeDetector.getRuntime(),
+                            platform: runtimeInfo.os,
+                            arch: runtimeInfo.arch,
+                            target: runtimeInfo.target,
+                            isNode: RuntimeDetector.isNode(),
+                            isDeno: RuntimeDetector.isDeno()
+                        },
+                        features: {
+                            wasm: RuntimeDetector.hasAPI('node') || RuntimeDetector.hasAPI('deno'),
+                            fs: RuntimeDetector.hasAPI('fs'),
+                            process: RuntimeDetector.hasAPI('process')
+                        },
+                        component: args.component || 'all',
+                        timestamp: new Date().toISOString()
+                    };
+                } catch (error) {
+                    return {
+                        success: false,
+                        error: `Feature detection failed: ${error.message}`,
+                        timestamp: new Date().toISOString()
+                    };
+                }
             default:
                 return {
                     success: true,
