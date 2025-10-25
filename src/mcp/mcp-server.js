@@ -9,11 +9,11 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { EnhancedMemory } from '../memory/enhanced-memory.js';
-// Use UnifiedMemoryManager for consistent storage with ReasoningBank support
-import { getUnifiedMemory } from '../memory/unified-memory-manager.js';
+// Use the same memory system that npx commands use - singleton instance
+import { memoryStore } from '../memory/fallback-store.js';
 // Import CLI implementations for MCP tools
 import { configCommand } from '../cli/simple-commands/config.js';
-import { detectExecutionEnvironment, getEnvironmentDescription } from '../cli/utils/environment-detector.js';
+import { detectExecutionEnvironment, getEnvironmentDescription } from '../cli/utils/environment-detector.ts';
 import { RuntimeDetector } from '../cli/runtime-detector.js';
 
 // Initialize agent tracker
@@ -68,8 +68,8 @@ function resolveLegacyAgentType(legacyType) {
 class ClaudeFlowMCPServer {
   constructor() {
     this.version = '2.5.0-alpha.131'; // Updated with Phase 4 SDK integration tools
-    this.memoryManager = getUnifiedMemory(); // Use UnifiedMemoryManager with ReasoningBank support
-    this.memoryStore = this.memoryManager; // Backward compatibility alias for v2.7.1 neural_train code
+    this.memoryStore = memoryStore; // Use shared singleton instance
+    // Use the same memory system that already works
     this.capabilities = {
       tools: {
         listChanged: true,
@@ -83,26 +83,24 @@ class ClaudeFlowMCPServer {
     this.tools = this.initializeTools();
     this.resources = this.initializeResources();
 
-    // Initialize unified memory manager (supports ReasoningBank auto-detection)
+    // Initialize shared memory store (same as npx commands)
     this.initializeMemory().catch((err) => {
       console.error(
-        `[${new Date().toISOString()}] ERROR [claude-flow-mcp] Failed to initialize memory:`,
+        `[${new Date().toISOString()}] ERROR [claude-flow-mcp] Failed to initialize shared memory:`,
         err,
       );
     });
+
+    // Database operations now use the same shared memory store as npx commands
   }
 
   async initializeMemory() {
-    await this.memoryManager.initialize();
-    const storageInfo = this.memoryManager.getStorageInfo();
+    await this.memoryStore.initialize();
     console.error(
-      `[${new Date().toISOString()}] INFO [claude-flow-mcp] (${this.sessionId}) Unified memory initialized`,
+      `[${new Date().toISOString()}] INFO [claude-flow-mcp] (${this.sessionId}) Shared memory store initialized (same as npx)`,
     );
     console.error(
-      `[${new Date().toISOString()}] INFO [claude-flow-mcp] (${this.sessionId}) Storage: ${storageInfo.type}${storageInfo.semanticSearch ? ' (with semantic search)' : ''}`,
-    );
-    console.error(
-      `[${new Date().toISOString()}] INFO [claude-flow-mcp] (${this.sessionId}) Path: ${storageInfo.path}`,
+      `[${new Date().toISOString()}] INFO [claude-flow-mcp] (${this.sessionId}) Using ${this.memoryStore.isUsingFallback() ? 'in-memory' : 'SQLite'} storage`,
     );
   }
 
@@ -188,16 +186,17 @@ class ClaudeFlowMCPServer {
       },
 
       // Neural Network Tools (15)
-      neural_status: {
-        name: 'neural_status',
-        description: 'Check neural network status',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            modelId: { type: 'string' },
-          },
-        },
-      },
+      // COMMENTED OUT - Unimplemented (falls to default case)
+      // neural_status: {
+      //   name: 'neural_status',
+      //   description: 'Check neural network status',
+      //   inputSchema: {
+      //     type: 'object',
+      //     properties: {
+      //       modelId: { type: 'string' },
+      //     },
+      //   },
+      // },
       neural_train: {
         name: 'neural_train',
         description: 'Train neural patterns with WASM SIMD acceleration',
@@ -256,7 +255,7 @@ class ClaudeFlowMCPServer {
         },
       },
 
-      // Analysis & Monitoring Tools (13)
+      // Analysis & Monitoring Tools (3 implemented)
       performance_report: {
         name: 'performance_report',
         description: 'Generate performance reports with real-time metrics',
@@ -279,99 +278,100 @@ class ClaudeFlowMCPServer {
           },
         },
       },
-      token_usage: {
-        name: 'token_usage',
-        description: 'Analyze token consumption',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            operation: { type: 'string' },
-            timeframe: { type: 'string', default: '24h' },
-          },
-        },
-      },
+      // COMMENTED OUT - token_usage: Not implemented
+      // token_usage: {
+      //   name: 'token_usage',
+      //   description: 'Analyze token consumption',
+      //   inputSchema: {
+      //     type: 'object',
+      //     properties: {
+      //       operation: { type: 'string' },
+      //       timeframe: { type: 'string', default: '24h' },
+      //     },
+      //   },
+      // },
 
-      // GitHub Integration Tools (8)
-      github_repo_analyze: {
-        name: 'github_repo_analyze',
-        description: 'Repository analysis',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            repo: { type: 'string' },
-            analysis_type: { type: 'string', enum: ['code_quality', 'performance', 'security'] },
-          },
-          required: ['repo'],
-        },
-      },
-      github_pr_manage: {
-        name: 'github_pr_manage',
-        description: 'Pull request management',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            repo: { type: 'string' },
-            pr_number: { type: 'number' },
-            action: { type: 'string', enum: ['review', 'merge', 'close'] },
-          },
-          required: ['repo', 'action'],
-        },
-      },
+      // COMMENTED OUT - GitHub Integration Tools (unimplemented stubs)
+      // github_repo_analyze: {
+      //   name: 'github_repo_analyze',
+      //   description: 'Repository analysis',
+      //   inputSchema: {
+      //     type: 'object',
+      //     properties: {
+      //       repo: { type: 'string' },
+      //       analysis_type: { type: 'string', enum: ['code_quality', 'performance', 'security'] },
+      //     },
+      //     required: ['repo'],
+      //   },
+      // },
+      // github_pr_manage: {
+      //   name: 'github_pr_manage',
+      //   description: 'Pull request management',
+      //   inputSchema: {
+      //     type: 'object',
+      //     properties: {
+      //       repo: { type: 'string' },
+      //       pr_number: { type: 'number' },
+      //       action: { type: 'string', enum: ['review', 'merge', 'close'] },
+      //     },
+      //     required: ['repo', 'action'],
+      //   },
+      // },
 
-      // DAA Tools (8)
-      daa_agent_create: {
-        name: 'daa_agent_create',
-        description: 'Create dynamic agents',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            agent_type: { type: 'string' },
-            capabilities: { type: 'array' },
-            resources: { type: 'object' },
-          },
-          required: ['agent_type'],
-        },
-      },
-      daa_capability_match: {
-        name: 'daa_capability_match',
-        description: 'Match capabilities to tasks',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            task_requirements: { type: 'array' },
-            available_agents: { type: 'array' },
-          },
-          required: ['task_requirements'],
-        },
-      },
+      // COMMENTED OUT - DAA Tools (check global.daaManager which may not be initialized)
+      // daa_agent_create: {
+      //   name: 'daa_agent_create',
+      //   description: 'Create dynamic agents',
+      //   inputSchema: {
+      //     type: 'object',
+      //     properties: {
+      //       agent_type: { type: 'string' },
+      //       capabilities: { type: 'array' },
+      //       resources: { type: 'object' },
+      //     },
+      //     required: ['agent_type'],
+      //   },
+      // },
+      // daa_capability_match: {
+      //   name: 'daa_capability_match',
+      //   description: 'Match capabilities to tasks',
+      //   inputSchema: {
+      //     type: 'object',
+      //     properties: {
+      //       task_requirements: { type: 'array' },
+      //       available_agents: { type: 'array' },
+      //     },
+      //     required: ['task_requirements'],
+      //   },
+      // },
 
-      // Workflow Tools (11)
-      workflow_create: {
-        name: 'workflow_create',
-        description: 'Create custom workflows',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            name: { type: 'string' },
-            steps: { type: 'array' },
-            triggers: { type: 'array' },
-          },
-          required: ['name', 'steps'],
-        },
-      },
-      sparc_mode: {
-        name: 'sparc_mode',
-        description: 'Run SPARC development modes',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            mode: { type: 'string', enum: ['dev', 'api', 'ui', 'test', 'refactor'] },
-            task_description: { type: 'string' },
-            options: { type: 'object' },
-          },
-          required: ['mode', 'task_description'],
-        },
-      },
+      // COMMENTED OUT - Workflow Tools (check global.workflowManager which may not be initialized)
+      // workflow_create: {
+      //   name: 'workflow_create',
+      //   description: 'Create custom workflows',
+      //   inputSchema: {
+      //     type: 'object',
+      //     properties: {
+      //       name: { type: 'string' },
+      //       steps: { type: 'array' },
+      //       triggers: { type: 'array' },
+      //     },
+      //     required: ['name', 'steps'],
+      //   },
+      // },
+      // sparc_mode: {
+      //   name: 'sparc_mode',
+      //   description: 'Run SPARC development modes',
+      //   inputSchema: {
+      //     type: 'object',
+      //     properties: {
+      //       mode: { type: 'string', enum: ['dev', 'api', 'ui', 'test', 'refactor'] },
+      //       task_description: { type: 'string' },
+      //       options: { type: 'object' },
+      //     },
+      //     required: ['mode', 'task_description'],
+      //   },
+      // },
 
       // Additional Swarm Tools
       agent_list: {
@@ -379,434 +379,433 @@ class ClaudeFlowMCPServer {
         description: 'List active agents & capabilities',
         inputSchema: { type: 'object', properties: { swarmId: { type: 'string' } } },
       },
-      agent_metrics: {
-        name: 'agent_metrics',
-        description: 'Agent performance metrics',
-        inputSchema: { type: 'object', properties: { agentId: { type: 'string' } } },
-      },
-      swarm_monitor: {
-        name: 'swarm_monitor',
-        description: 'Real-time swarm monitoring',
-        inputSchema: {
-          type: 'object',
-          properties: { swarmId: { type: 'string' }, interval: { type: 'number' } },
-        },
-      },
-      topology_optimize: {
-        name: 'topology_optimize',
-        description: 'Auto-optimize swarm topology',
-        inputSchema: { type: 'object', properties: { swarmId: { type: 'string' } } },
-      },
-      load_balance: {
-        name: 'load_balance',
-        description: 'Distribute tasks efficiently',
-        inputSchema: {
-          type: 'object',
-          properties: { swarmId: { type: 'string' }, tasks: { type: 'array' } },
-        },
-      },
-      coordination_sync: {
-        name: 'coordination_sync',
-        description: 'Sync agent coordination',
-        inputSchema: { type: 'object', properties: { swarmId: { type: 'string' } } },
-      },
-      swarm_scale: {
-        name: 'swarm_scale',
-        description: 'Auto-scale agent count',
-        inputSchema: {
-          type: 'object',
-          properties: { swarmId: { type: 'string' }, targetSize: { type: 'number' } },
-        },
-      },
-      swarm_destroy: {
-        name: 'swarm_destroy',
-        description: 'Gracefully shutdown swarm',
-        inputSchema: {
-          type: 'object',
-          properties: { swarmId: { type: 'string' } },
-          required: ['swarmId'],
-        },
-      },
+      // COMMENTED OUT - Additional Swarm Tools (unimplemented)
+      // agent_metrics: {
+      //   name: 'agent_metrics',
+      //   description: 'Agent performance metrics',
+      //   inputSchema: { type: 'object', properties: { agentId: { type: 'string' } } },
+      // },
+      // swarm_monitor: {
+      //   name: 'swarm_monitor',
+      //   description: 'Real-time swarm monitoring',
+      //   inputSchema: {
+      //     type: 'object',
+      //     properties: { swarmId: { type: 'string' }, interval: { type: 'number' } },
+      //   },
+      // },
+      // topology_optimize: {
+      //   name: 'topology_optimize',
+      //   description: 'Auto-optimize swarm topology',
+      //   inputSchema: { type: 'object', properties: { swarmId: { type: 'string' } } },
+      // },
+      // load_balance: {
+      //   name: 'load_balance',
+      //   description: 'Distribute tasks efficiently',
+      //   inputSchema: {
+      //     type: 'object',
+      //     properties: { swarmId: { type: 'string' }, tasks: { type: 'array' } },
+      //   },
+      // },
+      // coordination_sync: {
+      //   name: 'coordination_sync',
+      //   description: 'Sync agent coordination',
+      //   inputSchema: { type: 'object', properties: { swarmId: { type: 'string' } } },
+      // },
+      // swarm_scale: {
+      //   name: 'swarm_scale',
+      //   description: 'Auto-scale agent count',
+      //   inputSchema: {
+      //     type: 'object',
+      //     properties: { swarmId: { type: 'string' }, targetSize: { type: 'number' } },
+      //   },
+      // },
+      // swarm_destroy: {
+      //   name: 'swarm_destroy',
+      //   description: 'Gracefully shutdown swarm',
+      //   inputSchema: {
+      //     type: 'object',
+      //     properties: { swarmId: { type: 'string' } },
+      //     required: ['swarmId'],
+      //   },
+      // },
 
-      // Additional Neural Tools
-      neural_predict: {
-        name: 'neural_predict',
-        description: 'Make AI predictions',
-        inputSchema: {
-          type: 'object',
-          properties: { modelId: { type: 'string' }, input: { type: 'string' } },
-          required: ['modelId', 'input'],
-        },
-      },
-      model_load: {
-        name: 'model_load',
-        description: 'Load pre-trained models',
-        inputSchema: {
-          type: 'object',
-          properties: { modelPath: { type: 'string' } },
-          required: ['modelPath'],
-        },
-      },
-      model_save: {
-        name: 'model_save',
-        description: 'Save trained models',
-        inputSchema: {
-          type: 'object',
-          properties: { modelId: { type: 'string' }, path: { type: 'string' } },
-          required: ['modelId', 'path'],
-        },
-      },
-      wasm_optimize: {
-        name: 'wasm_optimize',
-        description: 'WASM SIMD optimization',
-        inputSchema: { type: 'object', properties: { operation: { type: 'string' } } },
-      },
-      inference_run: {
-        name: 'inference_run',
-        description: 'Run neural inference',
-        inputSchema: {
-          type: 'object',
-          properties: { modelId: { type: 'string' }, data: { type: 'array' } },
-          required: ['modelId', 'data'],
-        },
-      },
-      pattern_recognize: {
-        name: 'pattern_recognize',
-        description: 'Pattern recognition',
-        inputSchema: {
-          type: 'object',
-          properties: { data: { type: 'array' }, patterns: { type: 'array' } },
-          required: ['data'],
-        },
-      },
-      cognitive_analyze: {
-        name: 'cognitive_analyze',
-        description: 'Cognitive behavior analysis',
-        inputSchema: {
-          type: 'object',
-          properties: { behavior: { type: 'string' } },
-          required: ['behavior'],
-        },
-      },
-      learning_adapt: {
-        name: 'learning_adapt',
-        description: 'Adaptive learning',
-        inputSchema: {
-          type: 'object',
-          properties: { experience: { type: 'object' } },
-          required: ['experience'],
-        },
-      },
-      neural_compress: {
-        name: 'neural_compress',
-        description: 'Compress neural models',
-        inputSchema: {
-          type: 'object',
-          properties: { modelId: { type: 'string' }, ratio: { type: 'number' } },
-          required: ['modelId'],
-        },
-      },
-      ensemble_create: {
-        name: 'ensemble_create',
-        description: 'Create model ensembles',
-        inputSchema: {
-          type: 'object',
-          properties: { models: { type: 'array' }, strategy: { type: 'string' } },
-          required: ['models'],
-        },
-      },
-      transfer_learn: {
-        name: 'transfer_learn',
-        description: 'Transfer learning',
-        inputSchema: {
-          type: 'object',
-          properties: { sourceModel: { type: 'string' }, targetDomain: { type: 'string' } },
-          required: ['sourceModel', 'targetDomain'],
-        },
-      },
-      neural_explain: {
-        name: 'neural_explain',
-        description: 'AI explainability',
-        inputSchema: {
-          type: 'object',
-          properties: { modelId: { type: 'string' }, prediction: { type: 'object' } },
-          required: ['modelId', 'prediction'],
-        },
-      },
+      // COMMENTED OUT - Additional Neural Tools (return random mock data)
+      // neural_predict: {
+      //   name: 'neural_predict',
+      //   description: 'Make AI predictions',
+      //   inputSchema: {
+      //     type: 'object',
+      //     properties: { modelId: { type: 'string' }, input: { type: 'string' } },
+      //     required: ['modelId', 'input'],
+      //   },
+      // },
+      // model_load: {
+      //   name: 'model_load',
+      //   description: 'Load pre-trained models',
+      //   inputSchema: {
+      //     type: 'object',
+      //     properties: { modelPath: { type: 'string' } },
+      //     required: ['modelPath'],
+      //   },
+      // },
+      // model_save: {
+      //   name: 'model_save',
+      //   description: 'Save trained models',
+      //   inputSchema: {
+      //     type: 'object',
+      //     properties: { modelId: { type: 'string' }, path: { type: 'string' } },
+      //     required: ['modelId', 'path'],
+      //   },
+      // },
+      // wasm_optimize: {
+      //   name: 'wasm_optimize',
+      //   description: 'WASM SIMD optimization',
+      //   inputSchema: { type: 'object', properties: { operation: { type: 'string' } } },
+      // },
+      // inference_run: {
+      //   name: 'inference_run',
+      //   description: 'Run neural inference',
+      //   inputSchema: {
+      //     type: 'object',
+      //     properties: { modelId: { type: 'string' }, data: { type: 'array' } },
+      //     required: ['modelId', 'data'],
+      //   },
+      // },
+      // pattern_recognize: {
+      //   name: 'pattern_recognize',
+      //   description: 'Pattern recognition',
+      //   inputSchema: {
+      //     type: 'object',
+      //     properties: { data: { type: 'array' }, patterns: { type: 'array' } },
+      //     required: ['data'],
+      //   },
+      // },
+      // cognitive_analyze: {
+      //   name: 'cognitive_analyze',
+      //   description: 'Cognitive behavior analysis',
+      //   inputSchema: {
+      //     type: 'object',
+      //     properties: { behavior: { type: 'string' } },
+      //     required: ['behavior'],
+      //   },
+      // },
+      // learning_adapt: {
+      //   name: 'learning_adapt',
+      //   description: 'Adaptive learning',
+      //   inputSchema: {
+      //     type: 'object',
+      //     properties: { experience: { type: 'object' } },
+      //     required: ['experience'],
+      //   },
+      // },
+      // neural_compress: {
+      //   name: 'neural_compress',
+      //   description: 'Compress neural models',
+      //   inputSchema: {
+      //     type: 'object',
+      //     properties: { modelId: { type: 'string' }, ratio: { type: 'number' } },
+      //     required: ['modelId'],
+      //   },
+      // },
+      // ensemble_create: {
+      //   name: 'ensemble_create',
+      //   description: 'Create model ensembles',
+      //   inputSchema: {
+      //     type: 'object',
+      //     properties: { models: { type: 'array' }, strategy: { type: 'string' } },
+      //     required: ['models'],
+      //   },
+      // },
+      // transfer_learn: {
+      //   name: 'transfer_learn',
+      //   description: 'Transfer learning',
+      //   inputSchema: {
+      //     type: 'object',
+      //     properties: { sourceModel: { type: 'string' }, targetDomain: { type: 'string' } },
+      //     required: ['sourceModel', 'targetDomain'],
+      //   },
+      // },
+      // neural_explain: {
+      //   name: 'neural_explain',
+      //   description: 'AI explainability',
+      //   inputSchema: {
+      //     type: 'object',
+      //     properties: { modelId: { type: 'string' }, prediction: { type: 'object' } },
+      //     required: ['modelId', 'prediction'],
+      //   },
+      // },
 
-      // Additional Memory Tools
+      // Additional Memory/Analysis Tools (1 implemented)
       memory_analytics: {
         name: 'memory_analytics',
         description: 'Analyze MCP server process memory usage (Node.js heap, RSS, etc.)',
         inputSchema: { type: 'object', properties: { timeframe: { type: 'string' } } },
       },
+      // task_status: {
+      //   name: 'task_status',
+      //   description: 'Check task execution status',
+      //   inputSchema: {
+      //     type: 'object',
+      //     properties: { taskId: { type: 'string' } },
+      //     required: ['taskId'],
+      //   },
+      // },
+      // task_results: {
+      //   name: 'task_results',
+      //   description: 'Get task completion results',
+      //   inputSchema: {
+      //     type: 'object',
+      //     properties: { taskId: { type: 'string' } },
+      //     required: ['taskId'],
+      //   },
+      // },
+      // benchmark_run: {
+      //   name: 'benchmark_run',
+      //   description: 'Performance benchmarks',
+      //   inputSchema: { type: 'object', properties: { suite: { type: 'string' } } },
+      // },
+      // metrics_collect: {
+      //   name: 'metrics_collect',
+      //   description: 'Collect system metrics',
+      //   inputSchema: { type: 'object', properties: { components: { type: 'array' } } },
+      // },
+      // trend_analysis: {
+      //   name: 'trend_analysis',
+      //   description: 'Analyze performance trends',
+      //   inputSchema: {
+      //     type: 'object',
+      //     properties: { metric: { type: 'string' }, period: { type: 'string' } },
+      //     required: ['metric'],
+      //   },
+      // },
+      // cost_analysis: {
+      //   name: 'cost_analysis',
+      //   description: 'Cost and resource analysis',
+      //   inputSchema: { type: 'object', properties: { timeframe: { type: 'string' } } },
+      // },
+      // quality_assess: {
+      //   name: 'quality_assess',
+      //   description: 'Quality assessment',
+      //   inputSchema: {
+      //     type: 'object',
+      //     properties: { target: { type: 'string' }, criteria: { type: 'array' } },
+      //     required: ['target'],
+      //   },
+      // },
+      // error_analysis: {
+      //   name: 'error_analysis',
+      //   description: 'Error pattern analysis',
+      //   inputSchema: { type: 'object', properties: { logs: { type: 'array' } } },
+      // },
+      // usage_stats: {
+      //   name: 'usage_stats',
+      //   description: 'Usage statistics',
+      //   inputSchema: { type: 'object', properties: { component: { type: 'string' } } },
+      // },
+      // health_check: {
+      //   name: 'health_check',
+      //   description: 'System health monitoring',
+      //   inputSchema: { type: 'object', properties: { components: { type: 'array' } } },
+      // },
 
-      // Additional Analysis Tools
-      task_status: {
-        name: 'task_status',
-        description: 'Check task execution status',
-        inputSchema: {
-          type: 'object',
-          properties: { taskId: { type: 'string' } },
-          required: ['taskId'],
-        },
-      },
-      task_results: {
-        name: 'task_results',
-        description: 'Get task completion results',
-        inputSchema: {
-          type: 'object',
-          properties: { taskId: { type: 'string' } },
-          required: ['taskId'],
-        },
-      },
-      benchmark_run: {
-        name: 'benchmark_run',
-        description: 'Performance benchmarks',
-        inputSchema: { type: 'object', properties: { suite: { type: 'string' } } },
-      },
-      metrics_collect: {
-        name: 'metrics_collect',
-        description: 'Collect system metrics',
-        inputSchema: { type: 'object', properties: { components: { type: 'array' } } },
-      },
-      trend_analysis: {
-        name: 'trend_analysis',
-        description: 'Analyze performance trends',
-        inputSchema: {
-          type: 'object',
-          properties: { metric: { type: 'string' }, period: { type: 'string' } },
-          required: ['metric'],
-        },
-      },
-      cost_analysis: {
-        name: 'cost_analysis',
-        description: 'Cost and resource analysis',
-        inputSchema: { type: 'object', properties: { timeframe: { type: 'string' } } },
-      },
-      quality_assess: {
-        name: 'quality_assess',
-        description: 'Quality assessment',
-        inputSchema: {
-          type: 'object',
-          properties: { target: { type: 'string' }, criteria: { type: 'array' } },
-          required: ['target'],
-        },
-      },
-      error_analysis: {
-        name: 'error_analysis',
-        description: 'Error pattern analysis',
-        inputSchema: { type: 'object', properties: { logs: { type: 'array' } } },
-      },
-      usage_stats: {
-        name: 'usage_stats',
-        description: 'Usage statistics',
-        inputSchema: { type: 'object', properties: { component: { type: 'string' } } },
-      },
-      health_check: {
-        name: 'health_check',
-        description: 'System health monitoring',
-        inputSchema: { type: 'object', properties: { components: { type: 'array' } } },
-      },
+      // COMMENTED OUT - Additional Workflow Tools (check global.workflowManager)
+      // workflow_execute: {
+      //   name: 'workflow_execute',
+      //   description: 'Execute predefined workflows',
+      //   inputSchema: {
+      //     type: 'object',
+      //     properties: { workflowId: { type: 'string' }, params: { type: 'object' } },
+      //     required: ['workflowId'],
+      //   },
+      // },
+      // workflow_export: {
+      //   name: 'workflow_export',
+      //   description: 'Export workflow definitions',
+      //   inputSchema: {
+      //     type: 'object',
+      //     properties: { workflowId: { type: 'string' }, format: { type: 'string' } },
+      //     required: ['workflowId'],
+      //   },
+      // },
+      // automation_setup: {
+      //   name: 'automation_setup',
+      //   description: 'Setup automation rules',
+      //   inputSchema: {
+      //     type: 'object',
+      //     properties: { rules: { type: 'array' } },
+      //     required: ['rules'],
+      //   },
+      // },
+      // pipeline_create: {
+      //   name: 'pipeline_create',
+      //   description: 'Create CI/CD pipelines',
+      //   inputSchema: {
+      //     type: 'object',
+      //     properties: { config: { type: 'object' } },
+      //     required: ['config'],
+      //   },
+      // },
+      // scheduler_manage: {
+      //   name: 'scheduler_manage',
+      //   description: 'Manage task scheduling',
+      //   inputSchema: {
+      //     type: 'object',
+      //     properties: { action: { type: 'string' }, schedule: { type: 'object' } },
+      //     required: ['action'],
+      //   },
+      // },
+      // trigger_setup: {
+      //   name: 'trigger_setup',
+      //   description: 'Setup event triggers',
+      //   inputSchema: {
+      //     type: 'object',
+      //     properties: { events: { type: 'array' }, actions: { type: 'array' } },
+      //     required: ['events', 'actions'],
+      //   },
+      // },
+      // workflow_template: {
+      //   name: 'workflow_template',
+      //   description: 'Manage workflow templates',
+      //   inputSchema: {
+      //     type: 'object',
+      //     properties: { action: { type: 'string' }, template: { type: 'object' } },
+      //     required: ['action'],
+      //   },
+      // },
+      // batch_process: {
+      //   name: 'batch_process',
+      //   description: 'Batch processing',
+      //   inputSchema: {
+      //     type: 'object',
+      //     properties: { items: { type: 'array' }, operation: { type: 'string' } },
+      //     required: ['items', 'operation'],
+      //   },
+      // },
+      // parallel_execute: {
+      //   name: 'parallel_execute',
+      //   description: 'Execute tasks in parallel',
+      //   inputSchema: {
+      //     type: 'object',
+      //     properties: { tasks: { type: 'array' } },
+      //     required: ['tasks'],
+      //   },
+      // },
 
-      // Additional Workflow Tools
-      workflow_execute: {
-        name: 'workflow_execute',
-        description: 'Execute predefined workflows',
-        inputSchema: {
-          type: 'object',
-          properties: { workflowId: { type: 'string' }, params: { type: 'object' } },
-          required: ['workflowId'],
-        },
-      },
-      workflow_export: {
-        name: 'workflow_export',
-        description: 'Export workflow definitions',
-        inputSchema: {
-          type: 'object',
-          properties: { workflowId: { type: 'string' }, format: { type: 'string' } },
-          required: ['workflowId'],
-        },
-      },
-      automation_setup: {
-        name: 'automation_setup',
-        description: 'Setup automation rules',
-        inputSchema: {
-          type: 'object',
-          properties: { rules: { type: 'array' } },
-          required: ['rules'],
-        },
-      },
-      pipeline_create: {
-        name: 'pipeline_create',
-        description: 'Create CI/CD pipelines',
-        inputSchema: {
-          type: 'object',
-          properties: { config: { type: 'object' } },
-          required: ['config'],
-        },
-      },
-      scheduler_manage: {
-        name: 'scheduler_manage',
-        description: 'Manage task scheduling',
-        inputSchema: {
-          type: 'object',
-          properties: { action: { type: 'string' }, schedule: { type: 'object' } },
-          required: ['action'],
-        },
-      },
-      trigger_setup: {
-        name: 'trigger_setup',
-        description: 'Setup event triggers',
-        inputSchema: {
-          type: 'object',
-          properties: { events: { type: 'array' }, actions: { type: 'array' } },
-          required: ['events', 'actions'],
-        },
-      },
-      workflow_template: {
-        name: 'workflow_template',
-        description: 'Manage workflow templates',
-        inputSchema: {
-          type: 'object',
-          properties: { action: { type: 'string' }, template: { type: 'object' } },
-          required: ['action'],
-        },
-      },
-      batch_process: {
-        name: 'batch_process',
-        description: 'Batch processing',
-        inputSchema: {
-          type: 'object',
-          properties: { items: { type: 'array' }, operation: { type: 'string' } },
-          required: ['items', 'operation'],
-        },
-      },
-      parallel_execute: {
-        name: 'parallel_execute',
-        description: 'Execute tasks in parallel',
-        inputSchema: {
-          type: 'object',
-          properties: { tasks: { type: 'array' } },
-          required: ['tasks'],
-        },
-      },
+      // COMMENTED OUT - Additional GitHub Integration Tools (unimplemented stubs)
+      // github_issue_track: {
+      //   name: 'github_issue_track',
+      //   description: 'Issue tracking & triage',
+      //   inputSchema: {
+      //     type: 'object',
+      //     properties: { repo: { type: 'string' }, action: { type: 'string' } },
+      //     required: ['repo', 'action'],
+      //   },
+      // },
+      // github_release_coord: {
+      //   name: 'github_release_coord',
+      //   description: 'Release coordination',
+      //   inputSchema: {
+      //     type: 'object',
+      //     properties: { repo: { type: 'string' }, version: { type: 'string' } },
+      //     required: ['repo', 'version'],
+      //   },
+      // },
+      // github_workflow_auto: {
+      //   name: 'github_workflow_auto',
+      //   description: 'Workflow automation',
+      //   inputSchema: {
+      //     type: 'object',
+      //     properties: { repo: { type: 'string' }, workflow: { type: 'object' } },
+      //     required: ['repo', 'workflow'],
+      //   },
+      // },
+      // github_code_review: {
+      //   name: 'github_code_review',
+      //   description: 'Automated code review',
+      //   inputSchema: {
+      //     type: 'object',
+      //     properties: { repo: { type: 'string' }, pr: { type: 'number' } },
+      //     required: ['repo', 'pr'],
+      //   },
+      // },
+      // github_sync_coord: {
+      //   name: 'github_sync_coord',
+      //   description: 'Multi-repo sync coordination',
+      //   inputSchema: {
+      //     type: 'object',
+      //     properties: { repos: { type: 'array' } },
+      //     required: ['repos'],
+      //   },
+      // },
+      // github_metrics: {
+      //   name: 'github_metrics',
+      //   description: 'Repository metrics',
+      //   inputSchema: {
+      //     type: 'object',
+      //     properties: { repo: { type: 'string' } },
+      //     required: ['repo'],
+      //   },
+      // },
 
-      // GitHub Integration Tools
-      github_issue_track: {
-        name: 'github_issue_track',
-        description: 'Issue tracking & triage',
-        inputSchema: {
-          type: 'object',
-          properties: { repo: { type: 'string' }, action: { type: 'string' } },
-          required: ['repo', 'action'],
-        },
-      },
-      github_release_coord: {
-        name: 'github_release_coord',
-        description: 'Release coordination',
-        inputSchema: {
-          type: 'object',
-          properties: { repo: { type: 'string' }, version: { type: 'string' } },
-          required: ['repo', 'version'],
-        },
-      },
-      github_workflow_auto: {
-        name: 'github_workflow_auto',
-        description: 'Workflow automation',
-        inputSchema: {
-          type: 'object',
-          properties: { repo: { type: 'string' }, workflow: { type: 'object' } },
-          required: ['repo', 'workflow'],
-        },
-      },
-      github_code_review: {
-        name: 'github_code_review',
-        description: 'Automated code review',
-        inputSchema: {
-          type: 'object',
-          properties: { repo: { type: 'string' }, pr: { type: 'number' } },
-          required: ['repo', 'pr'],
-        },
-      },
-      github_sync_coord: {
-        name: 'github_sync_coord',
-        description: 'Multi-repo sync coordination',
-        inputSchema: {
-          type: 'object',
-          properties: { repos: { type: 'array' } },
-          required: ['repos'],
-        },
-      },
-      github_metrics: {
-        name: 'github_metrics',
-        description: 'Repository metrics',
-        inputSchema: {
-          type: 'object',
-          properties: { repo: { type: 'string' } },
-          required: ['repo'],
-        },
-      },
-
-      // Additional DAA Tools
-      daa_resource_alloc: {
-        name: 'daa_resource_alloc',
-        description: 'Resource allocation',
-        inputSchema: {
-          type: 'object',
-          properties: { resources: { type: 'object' }, agents: { type: 'array' } },
-          required: ['resources'],
-        },
-      },
-      daa_lifecycle_manage: {
-        name: 'daa_lifecycle_manage',
-        description: 'Agent lifecycle management',
-        inputSchema: {
-          type: 'object',
-          properties: { agentId: { type: 'string' }, action: { type: 'string' } },
-          required: ['agentId', 'action'],
-        },
-      },
-      daa_communication: {
-        name: 'daa_communication',
-        description: 'Inter-agent communication',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            from: { type: 'string' },
-            to: { type: 'string' },
-            message: { type: 'object' },
-          },
-          required: ['from', 'to', 'message'],
-        },
-      },
-      daa_consensus: {
-        name: 'daa_consensus',
-        description: 'Consensus mechanisms',
-        inputSchema: {
-          type: 'object',
-          properties: { agents: { type: 'array' }, proposal: { type: 'object' } },
-          required: ['agents', 'proposal'],
-        },
-      },
-      daa_fault_tolerance: {
-        name: 'daa_fault_tolerance',
-        description: 'Fault tolerance & recovery',
-        inputSchema: {
-          type: 'object',
-          properties: { agentId: { type: 'string' }, strategy: { type: 'string' } },
-          required: ['agentId'],
-        },
-      },
-      daa_optimization: {
-        name: 'daa_optimization',
-        description: 'Performance optimization',
-        inputSchema: {
-          type: 'object',
-          properties: { target: { type: 'string' }, metrics: { type: 'array' } },
-          required: ['target'],
-        },
-      },
+      // COMMENTED OUT - Additional DAA Tools (check global.daaManager)
+      // daa_resource_alloc: {
+      //   name: 'daa_resource_alloc',
+      //   description: 'Resource allocation',
+      //   inputSchema: {
+      //     type: 'object',
+      //     properties: { resources: { type: 'object' }, agents: { type: 'array' } },
+      //     required: ['resources'],
+      //   },
+      // },
+      // daa_lifecycle_manage: {
+      //   name: 'daa_lifecycle_manage',
+      //   description: 'Agent lifecycle management',
+      //   inputSchema: {
+      //     type: 'object',
+      //     properties: { agentId: { type: 'string' }, action: { type: 'string' } },
+      //     required: ['agentId', 'action'],
+      //   },
+      // },
+      // daa_communication: {
+      //   name: 'daa_communication',
+      //   description: 'Inter-agent communication',
+      //   inputSchema: {
+      //     type: 'object',
+      //     properties: {
+      //       from: { type: 'string' },
+      //       to: { type: 'string' },
+      //       message: { type: 'object' },
+      //     },
+      //     required: ['from', 'to', 'message'],
+      //   },
+      // },
+      // daa_consensus: {
+      //   name: 'daa_consensus',
+      //   description: 'Consensus mechanisms',
+      //   inputSchema: {
+      //     type: 'object',
+      //     properties: { agents: { type: 'array' }, proposal: { type: 'object' } },
+      //     required: ['agents', 'proposal'],
+      //   },
+      // },
+      // daa_fault_tolerance: {
+      //   name: 'daa_fault_tolerance',
+      //   description: 'Fault tolerance & recovery',
+      //   inputSchema: {
+      //     type: 'object',
+      //     properties: { agentId: { type: 'string' }, strategy: { type: 'string' } },
+      //     required: ['agentId'],
+      //   },
+      // },
+      // daa_optimization: {
+      //   name: 'daa_optimization',
+      //   description: 'Performance optimization',
+      //   inputSchema: {
+      //     type: 'object',
+      //     properties: { target: { type: 'string' }, metrics: { type: 'array' } },
+      //     required: ['target'],
+      //   },
+      // },
 
       // System & Utilities Tools
       config_manage: {
@@ -823,46 +822,47 @@ class ClaudeFlowMCPServer {
         description: 'Feature detection',
         inputSchema: { type: 'object', properties: { component: { type: 'string' } } },
       },
-      security_scan: {
-        name: 'security_scan',
-        description: 'Security scanning',
-        inputSchema: {
-          type: 'object',
-          properties: { target: { type: 'string' }, depth: { type: 'string' } },
-          required: ['target'],
-        },
-      },
-      backup_create: {
-        name: 'backup_create',
-        description: 'Create system backups',
-        inputSchema: {
-          type: 'object',
-          properties: { components: { type: 'array' }, destination: { type: 'string' } },
-        },
-      },
-      restore_system: {
-        name: 'restore_system',
-        description: 'System restoration',
-        inputSchema: {
-          type: 'object',
-          properties: { backupId: { type: 'string' } },
-          required: ['backupId'],
-        },
-      },
-      log_analysis: {
-        name: 'log_analysis',
-        description: 'Log analysis & insights',
-        inputSchema: {
-          type: 'object',
-          properties: { logFile: { type: 'string' }, patterns: { type: 'array' } },
-          required: ['logFile'],
-        },
-      },
-      diagnostic_run: {
-        name: 'diagnostic_run',
-        description: 'System diagnostics',
-        inputSchema: { type: 'object', properties: { components: { type: 'array' } } },
-      },
+      // COMMENTED OUT - System & Utilities Tools (unimplemented)
+      // security_scan: {
+      //   name: 'security_scan',
+      //   description: 'Security scanning',
+      //   inputSchema: {
+      //     type: 'object',
+      //     properties: { target: { type: 'string' }, depth: { type: 'string' } },
+      //     required: ['target'],
+      //   },
+      // },
+      // backup_create: {
+      //   name: 'backup_create',
+      //   description: 'Create system backups',
+      //   inputSchema: {
+      //     type: 'object',
+      //     properties: { components: { type: 'array' }, destination: { type: 'string' } },
+      //   },
+      // },
+      // restore_system: {
+      //   name: 'restore_system',
+      //   description: 'System restoration',
+      //   inputSchema: {
+      //     type: 'object',
+      //     properties: { backupId: { type: 'string' } },
+      //     required: ['backupId'],
+      //   },
+      // },
+      // log_analysis: {
+      //   name: 'log_analysis',
+      //   description: 'Log analysis & insights',
+      //   inputSchema: {
+      //     type: 'object',
+      //     properties: { logFile: { type: 'string' }, patterns: { type: 'array' } },
+      //     required: ['logFile'],
+      //   },
+      // },
+      // diagnostic_run: {
+      //   name: 'diagnostic_run',
+      //   description: 'System diagnostics',
+      //   inputSchema: { type: 'object', properties: { components: { type: 'array' } } },
+      // },
 
       // Phase 4: SDK Integration - Real-Time Query Control & Parallel Spawning (v2.5.0-alpha.131)
       agents_spawn_parallel: {
@@ -1125,15 +1125,15 @@ class ClaudeFlowMCPServer {
           }),
         };
 
-        // Store swarm data in unified memory
+        // Store swarm data in memory store (same as npx commands)
         try {
-          await this.memoryManager.store(`swarm:${swarmId}`, JSON.stringify(swarmData), 'swarms', {
-            type: 'swarm_data',
-            sessionId: this.sessionId
+          await this.memoryStore.store(`swarm:${swarmId}`, JSON.stringify(swarmData), {
+            namespace: 'swarms',
+            metadata: { type: 'swarm_data', sessionId: this.sessionId },
           });
-          await this.memoryManager.store('active_swarm', swarmId, 'system', {
-            type: 'active_swarm',
-            sessionId: this.sessionId
+          await this.memoryStore.store('active_swarm', swarmId, {
+            namespace: 'system',
+            metadata: { type: 'active_swarm', sessionId: this.sessionId },
           });
           console.error(
             `[${new Date().toISOString()}] INFO [claude-flow-mcp] Swarm persisted to memory: ${swarmId}`,
@@ -1173,20 +1173,19 @@ class ClaudeFlowMCPServer {
           }),
         };
 
-        // Store agent data in unified memory
+        // Store agent data in memory store (same as npx commands)
         try {
           const swarmId = agentData.swarmId || (await this.getActiveSwarmId());
           if (swarmId) {
-            await this.memoryManager.store(`agent:${swarmId}:${agentId}`, JSON.stringify(agentData), 'agents', {
-              type: 'agent_data',
-              swarmId: swarmId,
-              sessionId: this.sessionId
+            await this.memoryStore.store(`agent:${swarmId}:${agentId}`, JSON.stringify(agentData), {
+              namespace: 'agents',
+              metadata: { type: 'agent_data', swarmId: swarmId, sessionId: this.sessionId },
             });
           } else {
             // Fallback to old format if no swarm ID
-            await this.memoryManager.store(`agent:${agentId}`, JSON.stringify(agentData), 'agents', {
-              type: 'agent_data',
-              sessionId: this.sessionId
+            await this.memoryStore.store(`agent:${agentId}`, JSON.stringify(agentData), {
+              namespace: 'agents',
+              metadata: { type: 'agent_data', sessionId: this.sessionId },
             });
           }
           console.error(
@@ -1233,10 +1232,9 @@ class ClaudeFlowMCPServer {
         const timePerEpoch = 0.08;
         const trainingTime = baseTime + epochs * timePerEpoch + (Math.random() * 2 - 1);
 
-        const modelId = `model_${args.pattern_type || 'general'}_${Date.now()}`;
-        const patternData = {
+        return {
           success: true,
-          modelId: modelId,
+          modelId: `model_${args.pattern_type || 'general'}_${Date.now()}`,
           pattern_type: args.pattern_type || 'coordination',
           epochs: epochs,
           accuracy: Math.min(finalAccuracy, maxAccuracy),
@@ -1245,296 +1243,10 @@ class ClaudeFlowMCPServer {
           improvement_rate: epochFactor > 1 ? 'converged' : 'improving',
           data_source: args.training_data || 'recent',
           timestamp: new Date().toISOString(),
-          training_metadata: {
-            baseAccuracy: baseAccuracy,
-            maxAccuracy: maxAccuracy,
-            epochFactor: epochFactor,
-            finalAccuracy: Math.min(finalAccuracy, maxAccuracy),
-          },
         };
-
-        // Persist the trained pattern to memory
-        if (this.memoryManager) {
-          try {
-            await this.memoryManager.store(modelId, JSON.stringify(patternData), 'patterns', {
-              sessionId: this.sessionId,
-              pattern_type: args.pattern_type || 'coordination',
-              accuracy: patternData.accuracy,
-              epochs: epochs,
-              storedBy: 'neural_train',
-              type: 'neural_pattern',
-            });
-
-            // Also store in pattern-stats namespace for quick statistics retrieval
-            const statsKey = `stats_${args.pattern_type || 'coordination'}`;
-            const existingStatsEntry = await this.memoryManager.get(statsKey, 'pattern-stats');
-            const existingStats = existingStatsEntry?.value;
-
-            let stats = existingStats ? JSON.parse(existingStats) : {
-              pattern_type: args.pattern_type || 'coordination',
-              total_trainings: 0,
-              avg_accuracy: 0,
-              max_accuracy: 0,
-              min_accuracy: 1,
-              total_epochs: 0,
-              models: [],
-            };
-
-            stats.total_trainings += 1;
-            stats.avg_accuracy = (stats.avg_accuracy * (stats.total_trainings - 1) + patternData.accuracy) / stats.total_trainings;
-            stats.max_accuracy = Math.max(stats.max_accuracy, patternData.accuracy);
-            stats.min_accuracy = Math.min(stats.min_accuracy, patternData.accuracy);
-            stats.total_epochs += epochs;
-            stats.models.push({
-              modelId: modelId,
-              accuracy: patternData.accuracy,
-              timestamp: patternData.timestamp,
-            });
-
-            // Keep only last 50 models in stats
-            if (stats.models.length > 50) {
-              stats.models = stats.models.slice(-50);
-            }
-
-            await this.memoryManager.store(statsKey, JSON.stringify(stats), 'pattern-stats', {
-              pattern_type: args.pattern_type || 'coordination',
-              storedBy: 'neural_train',
-              type: 'pattern_statistics',
-            });
-
-            console.error(
-              `[${new Date().toISOString()}] INFO [claude-flow-mcp] Neural pattern stored: ${modelId} (accuracy: ${patternData.accuracy.toFixed(4)})`,
-            );
-          } catch (error) {
-            console.error(
-              `[${new Date().toISOString()}] ERROR [claude-flow-mcp] Failed to persist pattern: ${error.message}`,
-            );
-          }
-        }
-
-        return patternData;
-
-      case 'neural_patterns':
-        if (!this.memoryManager) {
-          return {
-            success: false,
-            error: 'Shared memory system not initialized',
-            timestamp: new Date().toISOString(),
-          };
-        }
-
-        try {
-          switch (args.action) {
-            case 'analyze':
-              // Retrieve and analyze a specific pattern or all patterns
-              if (args.metadata && args.metadata.modelId) {
-                const patternEntry = await this.memoryManager.get(args.metadata.modelId, 'patterns');
-                const patternValue = patternEntry?.value;
-
-                if (!patternValue) {
-                  return {
-                    success: false,
-                    action: 'analyze',
-                    error: 'Pattern not found',
-                    modelId: args.metadata.modelId,
-                    timestamp: new Date().toISOString(),
-                  };
-                }
-
-                const pattern = JSON.parse(patternValue);
-                return {
-                  success: true,
-                  action: 'analyze',
-                  pattern: pattern,
-                  analysis: {
-                    quality: pattern.accuracy > 0.9 ? 'excellent' : pattern.accuracy > 0.75 ? 'good' : 'fair',
-                    confidence: pattern.accuracy,
-                    pattern_type: pattern.pattern_type,
-                    training_epochs: pattern.epochs,
-                    improvement_rate: pattern.improvement_rate,
-                    data_source: pattern.data_source,
-                  },
-                  timestamp: new Date().toISOString(),
-                };
-              } else {
-                // List all patterns
-                const allPatterns = await this.memoryManager.query('', {
-                  namespace: 'patterns',
-                  limit: 100,
-                });
-
-                return {
-                  success: true,
-                  action: 'analyze',
-                  total_patterns: allPatterns.length,
-                  patterns: allPatterns.map((p) => {
-                    try {
-                      const data = JSON.parse(p.value);
-                      return {
-                        modelId: data.modelId,
-                        pattern_type: data.pattern_type,
-                        accuracy: data.accuracy,
-                        timestamp: data.timestamp,
-                      };
-                    } catch (e) {
-                      return { error: 'Failed to parse pattern data' };
-                    }
-                  }),
-                  timestamp: new Date().toISOString(),
-                };
-              }
-
-            case 'learn':
-              // Store a learning experience
-              if (!args.operation || !args.outcome) {
-                return {
-                  success: false,
-                  action: 'learn',
-                  error: 'operation and outcome are required for learning',
-                  timestamp: new Date().toISOString(),
-                };
-              }
-
-              const learningId = `learning_${Date.now()}`;
-              const learningData = {
-                learningId: learningId,
-                operation: args.operation,
-                outcome: args.outcome,
-                metadata: args.metadata || {},
-                timestamp: new Date().toISOString(),
-              };
-
-              await this.memoryManager.store(learningId, JSON.stringify(learningData), 'patterns', {
-                sessionId: this.sessionId,
-                storedBy: 'neural_patterns',
-                type: 'learning_experience',
-                operation: args.operation,
-              });
-
-              return {
-                success: true,
-                action: 'learn',
-                learningId: learningId,
-                stored: true,
-                timestamp: new Date().toISOString(),
-              };
-
-            case 'predict':
-              // Predict based on stored patterns
-              const patternType = (args.metadata && args.metadata.pattern_type) || 'coordination';
-              const statsKey = `stats_${patternType}`;
-              const statsEntry = await this.memoryManager.get(statsKey, 'pattern-stats');
-              const statsValue = statsEntry?.value;
-
-              if (!statsValue) {
-                return {
-                  success: true,
-                  action: 'predict',
-                  prediction: {
-                    confidence: 0.5,
-                    recommendation: 'No historical data available for this pattern type',
-                    pattern_type: patternType,
-                  },
-                  timestamp: new Date().toISOString(),
-                };
-              }
-
-              const stats = JSON.parse(statsValue);
-              return {
-                success: true,
-                action: 'predict',
-                prediction: {
-                  confidence: stats.avg_accuracy,
-                  expected_accuracy: stats.avg_accuracy,
-                  pattern_type: patternType,
-                  recommendation:
-                    stats.avg_accuracy > 0.85
-                      ? 'High confidence - pattern is well-established'
-                      : stats.avg_accuracy > 0.7
-                        ? 'Moderate confidence - more training recommended'
-                        : 'Low confidence - significant training needed',
-                  historical_trainings: stats.total_trainings,
-                  best_accuracy: stats.max_accuracy,
-                },
-                timestamp: new Date().toISOString(),
-              };
-
-            case 'stats':
-              // Return statistics for all pattern types or specific type
-              const requestedType = (args.metadata && args.metadata.pattern_type) || null;
-
-              if (requestedType) {
-                const statsKey = `stats_${requestedType}`;
-                const statsEntry = await this.memoryManager.get(statsKey, 'pattern-stats');
-                const statsValue = statsEntry?.value;
-
-                if (!statsValue) {
-                  return {
-                    success: true,
-                    action: 'stats',
-                    pattern_type: requestedType,
-                    statistics: {
-                      total_trainings: 0,
-                      message: 'No training data available for this pattern type',
-                    },
-                    timestamp: new Date().toISOString(),
-                  };
-                }
-
-                const stats = JSON.parse(statsValue);
-                return {
-                  success: true,
-                  action: 'stats',
-                  pattern_type: requestedType,
-                  statistics: stats,
-                  timestamp: new Date().toISOString(),
-                };
-              } else {
-                // Get stats for all pattern types
-                const allStats = await this.memoryManager.query('stats_', {
-                  namespace: 'pattern-stats',
-                  limit: 100,
-                });
-
-                return {
-                  success: true,
-                  action: 'stats',
-                  total_pattern_types: allStats.length,
-                  statistics: allStats.map((s) => {
-                    try {
-                      return JSON.parse(s.value);
-                    } catch (e) {
-                      return { error: 'Failed to parse stats data' };
-                    }
-                  }),
-                  timestamp: new Date().toISOString(),
-                };
-              }
-
-            default:
-              return {
-                success: false,
-                error: `Unknown action: ${args.action}. Valid actions are: analyze, learn, predict, stats`,
-                timestamp: new Date().toISOString(),
-              };
-          }
-        } catch (error) {
-          console.error(
-            `[${new Date().toISOString()}] ERROR [claude-flow-mcp] neural_patterns error: ${error.message}`,
-          );
-          return {
-            success: false,
-            action: args.action,
-            error: error.message,
-            timestamp: new Date().toISOString(),
-          };
-        }
 
       case 'memory_usage':
         return await this.handleMemoryUsage(args);
-
-      case 'memory_search':
-        return await this.handleMemorySearch(args);
 
       // Enhanced Neural Tools with Real Metrics
       case 'model_save':
@@ -1822,11 +1534,12 @@ class ClaudeFlowMCPServer {
 
       case 'swarm_status':
         try {
-          // Get active swarm ID from unified memory manager
+          // Get active swarm ID from memory store
           let swarmId = args.swarmId;
           if (!swarmId) {
-            const entry = await this.memoryManager.get('active_swarm', 'system');
-            swarmId = entry?.value || null;
+            swarmId = await this.memoryStore.retrieve('active_swarm', {
+              namespace: 'system',
+            });
           }
 
           if (!swarmId) {
@@ -1841,8 +1554,9 @@ class ClaudeFlowMCPServer {
           if (global.agentTracker) {
             const status = global.agentTracker.getSwarmStatus(swarmId);
             if (status.agentCount > 0) {
-              const swarmEntry = await this.memoryManager.get(`swarm:${swarmId}`, 'swarms');
-              const swarmDataRaw = swarmEntry?.value || null;
+              const swarmDataRaw = await this.memoryStore.retrieve(`swarm:${swarmId}`, {
+                namespace: 'swarms',
+              });
               const swarm = swarmDataRaw ? (typeof swarmDataRaw === 'string' ? JSON.parse(swarmDataRaw) : swarmDataRaw) : {};
               
               return {
@@ -1859,9 +1573,10 @@ class ClaudeFlowMCPServer {
             }
           }
 
-          // Retrieve swarm data from unified memory manager
-          const swarmEntry = await this.memoryManager.get(`swarm:${swarmId}`, 'swarms');
-          const swarmDataRaw = swarmEntry?.value || null;
+          // Retrieve swarm data from memory store
+          const swarmDataRaw = await this.memoryStore.retrieve(`swarm:${swarmId}`, {
+            namespace: 'swarms',
+          });
 
           if (!swarmDataRaw) {
             return {
@@ -1873,36 +1588,36 @@ class ClaudeFlowMCPServer {
 
           const swarm = typeof swarmDataRaw === 'string' ? JSON.parse(swarmDataRaw) : swarmDataRaw;
 
-          // Retrieve agents from unified memory using search
-          const agentsData = await this.memoryManager.query(`agent:${swarmId}:`, {
+          // Retrieve agents from memory
+          const agentsData = await this.memoryStore.list({
             namespace: 'agents',
             limit: 100,
           });
 
-          // Parse agent data
+          // Filter agents for this swarm
           const swarmAgents = agentsData
+            .filter((entry) => entry.key.startsWith(`agent:${swarmId}:`))
             .map((entry) => {
               try {
-                const value = typeof entry === 'object' && entry.value ? entry.value : entry;
-                return typeof value === 'string' ? JSON.parse(value) : value;
+                return JSON.parse(entry.value);
               } catch (e) {
                 return null;
               }
             })
             .filter((agent) => agent !== null);
 
-          // Retrieve tasks from unified memory using search
-          const tasksData = await this.memoryManager.query(`task:${swarmId}:`, {
+          // Retrieve tasks from memory
+          const tasksData = await this.memoryStore.list({
             namespace: 'tasks',
             limit: 100,
           });
 
-          // Parse task data
+          // Filter tasks for this swarm
           const swarmTasks = tasksData
+            .filter((entry) => entry.key.startsWith(`task:${swarmId}:`))
             .map((entry) => {
               try {
-                const value = typeof entry === 'object' && entry.value ? entry.value : entry;
-                return typeof value === 'string' ? JSON.parse(value) : value;
+                return JSON.parse(entry.value);
               } catch (e) {
                 return null;
               }
@@ -1990,18 +1705,16 @@ class ClaudeFlowMCPServer {
           }),
         };
 
-        // Store task data in unified memory manager
+        // Store task data in memory store
         try {
           if (swarmIdForTask) {
-            await this.memoryManager.store(
+            await this.memoryStore.store(
               `task:${swarmIdForTask}:${taskId}`,
               JSON.stringify(taskData),
-              'tasks',
               {
-                type: 'task_data',
-                swarmId: swarmIdForTask,
-                sessionId: this.sessionId
-              }
+                namespace: 'tasks',
+                metadata: { type: 'task_data', swarmId: swarmIdForTask, sessionId: this.sessionId },
+              },
             );
             console.error(
               `[${new Date().toISOString()}] INFO [claude-flow-mcp] Task persisted to memory: ${taskId}`,
@@ -2307,116 +2020,120 @@ class ClaudeFlowMCPServer {
   }
 
   async handleMemoryUsage(args) {
-    if (!this.memoryManager) {
+    if (!this.memoryStore) {
       return {
         success: false,
-        error: 'Memory system not initialized',
+        error: 'Shared memory system not initialized',
         timestamp: new Date().toISOString(),
       };
     }
 
     try {
-      const storageInfo = this.memoryManager.getStorageInfo();
-      const namespace = args.namespace || 'default';
-
       switch (args.action) {
         case 'store':
-          const storeResult = await this.memoryManager.store(args.key, args.value, namespace, {
-            sessionId: this.sessionId,
-            storedBy: 'mcp-server',
-            type: 'knowledge',
+          const storeResult = await this.memoryStore.store(args.key, args.value, {
+            namespace: args.namespace || 'default',
             ttl: args.ttl,
+            metadata: {
+              sessionId: this.sessionId,
+              storedBy: 'mcp-server',
+              type: 'knowledge',
+            },
           });
 
           console.error(
-            `[${new Date().toISOString()}] INFO [claude-flow-mcp] Stored: ${args.key} (namespace: ${namespace}, mode: ${storageInfo.type})`,
+            `[${new Date().toISOString()}] INFO [claude-flow-mcp] Stored in shared memory: ${args.key} (namespace: ${args.namespace || 'default'})`,
           );
 
           return {
             success: true,
             action: 'store',
             key: args.key,
-            namespace,
+            namespace: args.namespace || 'default',
             stored: true,
-            size: args.value.length,
-            memoryId: storeResult.memoryId,
-            storage_type: storageInfo.type,
-            semantic_search: storageInfo.semanticSearch || false,
+            size: storeResult.size || args.value.length,
+            id: storeResult.id,
+            storage_type: this.memoryStore.isUsingFallback() ? 'in-memory' : 'sqlite',
             timestamp: new Date().toISOString(),
           };
 
         case 'retrieve':
-          const entry = await this.memoryManager.get(args.key, namespace);
+          const value = await this.memoryStore.retrieve(args.key, {
+            namespace: args.namespace || 'default',
+          });
 
           console.error(
-            `[${new Date().toISOString()}] INFO [claude-flow-mcp] Retrieved: ${args.key} (found: ${entry !== null})`,
+            `[${new Date().toISOString()}] INFO [claude-flow-mcp] Retrieved from shared memory: ${args.key} (found: ${value !== null})`,
           );
 
           return {
             success: true,
             action: 'retrieve',
             key: args.key,
-            value: entry?.value || null,
-            found: entry !== null,
-            namespace,
-            storage_type: storageInfo.type,
+            value: value,
+            found: value !== null,
+            namespace: args.namespace || 'default',
+            storage_type: this.memoryStore.isUsingFallback() ? 'in-memory' : 'sqlite',
             timestamp: new Date().toISOString(),
           };
 
         case 'list':
-          const namespaces = await this.memoryManager.listNamespaces();
-          const targetNs = namespaces.find(ns => ns.namespace === namespace);
+          const entries = await this.memoryStore.list({
+            namespace: args.namespace || 'default',
+            limit: 100,
+          });
 
           console.error(
-            `[${new Date().toISOString()}] INFO [claude-flow-mcp] Listed namespace: ${namespace} (${targetNs?.count || 0} entries)`,
+            `[${new Date().toISOString()}] INFO [claude-flow-mcp] Listed shared memory entries: ${entries.length} (namespace: ${args.namespace || 'default'})`,
           );
 
           return {
             success: true,
             action: 'list',
-            namespace,
-            namespaces: [targetNs || { namespace, count: 0 }],
-            count: targetNs?.count || 0,
-            storage_type: storageInfo.type,
+            namespace: args.namespace || 'default',
+            entries: entries,
+            count: entries.length,
+            storage_type: this.memoryStore.isUsingFallback() ? 'in-memory' : 'sqlite',
             timestamp: new Date().toISOString(),
           };
 
         case 'delete':
-          await this.memoryManager.delete(args.key, namespace);
+          const deleted = await this.memoryStore.delete(args.key, {
+            namespace: args.namespace || 'default',
+          });
 
           console.error(
-            `[${new Date().toISOString()}] INFO [claude-flow-mcp] Deleted: ${args.key} (namespace: ${namespace})`,
+            `[${new Date().toISOString()}] INFO [claude-flow-mcp] Deleted from shared memory: ${args.key} (success: ${deleted})`,
           );
 
           return {
             success: true,
             action: 'delete',
             key: args.key,
-            namespace,
-            deleted: true,
-            storage_type: storageInfo.type,
+            namespace: args.namespace || 'default',
+            deleted: deleted,
+            storage_type: this.memoryStore.isUsingFallback() ? 'in-memory' : 'sqlite',
             timestamp: new Date().toISOString(),
           };
 
         case 'search':
-          const searchResults = await this.memoryManager.query(args.value || args.pattern || '', {
-            namespace,
-            limit: args.limit || 50,
+          const results = await this.memoryStore.search(args.value || '', {
+            namespace: args.namespace || 'default',
+            limit: 50,
           });
 
           console.error(
-            `[${new Date().toISOString()}] INFO [claude-flow-mcp] Searched: "${args.value}" (${searchResults.length} results, mode: ${storageInfo.type})`,
+            `[${new Date().toISOString()}] INFO [claude-flow-mcp] Searched shared memory: ${results.length} results for "${args.value}"`,
           );
 
           return {
             success: true,
             action: 'search',
-            pattern: args.value || args.pattern,
-            namespace,
-            results: searchResults,
-            count: searchResults.length,
-            storage_type: storageInfo.type,
-            semantic_search: storageInfo.semanticSearch || false,
+            pattern: args.value,
+            namespace: args.namespace || 'default',
+            results: results,
+            count: results.length,
+            storage_type: this.memoryStore.isUsingFallback() ? 'in-memory' : 'sqlite',
             timestamp: new Date().toISOString(),
           };
 
@@ -2429,21 +2146,21 @@ class ClaudeFlowMCPServer {
       }
     } catch (error) {
       console.error(
-        `[${new Date().toISOString()}] ERROR [claude-flow-mcp] Memory operation failed:`,
+        `[${new Date().toISOString()}] ERROR [claude-flow-mcp] Shared memory operation failed:`,
         error,
       );
       return {
         success: false,
         error: error.message,
         action: args.action,
-        storage_type: this.memoryManager?.getStorageInfo()?.type || 'unknown',
+        storage_type: this.memoryStore?.isUsingFallback() ? 'in-memory' : 'sqlite',
         timestamp: new Date().toISOString(),
       };
     }
   }
 
   async handleMemorySearch(args) {
-    if (!this.memoryManager) {
+    if (!this.memoryStore) {
       return {
         success: false,
         error: 'Memory system not initialized',
@@ -2452,8 +2169,7 @@ class ClaudeFlowMCPServer {
     }
 
     try {
-      const storageInfo = this.memoryManager.getStorageInfo();
-      const results = await this.memoryManager.query(args.pattern, {
+      const results = await this.sharedMemory.search(args.pattern, {
         namespace: args.namespace || 'default',
         limit: args.limit || 10,
       });
@@ -2464,8 +2180,6 @@ class ClaudeFlowMCPServer {
         namespace: args.namespace || 'default',
         results: results,
         count: results.length,
-        storage_type: storageInfo.type,
-        semantic_search: storageInfo.semanticSearch || false,
         timestamp: new Date().toISOString(),
       };
     } catch (error) {
@@ -2483,8 +2197,10 @@ class ClaudeFlowMCPServer {
 
   async getActiveSwarmId() {
     try {
-      const entry = await this.memoryManager.get('active_swarm', 'system');
-      return entry?.value || null;
+      const activeSwarmId = await this.memoryStore.retrieve('active_swarm', {
+        namespace: 'system',
+      });
+      return activeSwarmId || null;
     } catch (error) {
       console.error(
         `[${new Date().toISOString()}] ERROR [claude-flow-mcp] Failed to get active swarm:`,
