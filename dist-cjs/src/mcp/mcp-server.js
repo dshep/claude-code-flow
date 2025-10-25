@@ -2081,21 +2081,6 @@ let ClaudeFlowMCPServer = class ClaudeFlowMCPServer {
                 return await this.handleMemoryUsage(args);
             case 'memory_search':
                 return await this.handleMemorySearch(args);
-            case 'performance_report':
-                return {
-                    success: true,
-                    timeframe: args.timeframe || '24h',
-                    format: args.format || 'summary',
-                    metrics: {
-                        tasks_executed: Math.floor(Math.random() * 200) + 50,
-                        success_rate: Math.random() * 0.2 + 0.8,
-                        avg_execution_time: Math.random() * 10 + 5,
-                        agents_spawned: Math.floor(Math.random() * 50) + 10,
-                        memory_efficiency: Math.random() * 0.3 + 0.7,
-                        neural_events: Math.floor(Math.random() * 100) + 20
-                    },
-                    timestamp: new Date().toISOString()
-                };
             case 'model_save':
                 return {
                     success: true,
