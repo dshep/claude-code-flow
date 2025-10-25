@@ -3,7 +3,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { memoryStore } from '../memory/fallback-store.js';
 import { configCommand } from '../cli/simple-commands/config.js';
-import { detectExecutionEnvironment, getEnvironmentDescription } from '../cli/utils/environment-detector.ts';
+import { detectExecutionEnvironment, getEnvironmentDescription } from '../cli/utils/environment-detector.js';
 import { RuntimeDetector } from '../cli/runtime-detector.js';
 await import('./implementations/agent-tracker.js').catch(()=>{
     try {
