@@ -44,6 +44,7 @@ let ClaudeFlowMCPServer = class ClaudeFlowMCPServer {
     constructor(){
         this.version = '2.5.0-alpha.131';
         this.memoryManager = getUnifiedMemory();
+        this.memoryStore = this.memoryManager;
         this.capabilities = {
             tools: {
                 listChanged: true
