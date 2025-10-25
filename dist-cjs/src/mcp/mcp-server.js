@@ -1841,24 +1841,19 @@ let ClaudeFlowMCPServer = class ClaudeFlowMCPServer {
                         finalAccuracy: Math.min(finalAccuracy, maxAccuracy)
                     }
                 };
-                if (this.memoryStore) {
+                if (this.memoryManager) {
                     try {
-                        await this.memoryStore.store(modelId, JSON.stringify(patternData), {
-                            namespace: 'patterns',
-                            ttl: 30 * 24 * 60 * 60 * 1000,
-                            metadata: {
-                                sessionId: this.sessionId,
-                                pattern_type: args.pattern_type || 'coordination',
-                                accuracy: patternData.accuracy,
-                                epochs: epochs,
-                                storedBy: 'neural_train',
-                                type: 'neural_pattern'
-                            }
+                        await this.memoryManager.store(modelId, JSON.stringify(patternData), 'patterns', {
+                            sessionId: this.sessionId,
+                            pattern_type: args.pattern_type || 'coordination',
+                            accuracy: patternData.accuracy,
+                            epochs: epochs,
+                            storedBy: 'neural_train',
+                            type: 'neural_pattern'
                         });
                         const statsKey = `stats_${args.pattern_type || 'coordination'}`;
-                        const existingStats = await this.memoryStore.retrieve(statsKey, {
-                            namespace: 'pattern-stats'
-                        });
+                        const existingStatsEntry = await this.memoryManager.get(statsKey, 'pattern-stats');
+                        const existingStats = existingStatsEntry?.value;
                         let stats = existingStats ? JSON.parse(existingStats) : {
                             pattern_type: args.pattern_type || 'coordination',
                             total_trainings: 0,
@@ -1881,14 +1876,10 @@ let ClaudeFlowMCPServer = class ClaudeFlowMCPServer {
                         if (stats.models.length > 50) {
                             stats.models = stats.models.slice(-50);
                         }
-                        await this.memoryStore.store(statsKey, JSON.stringify(stats), {
-                            namespace: 'pattern-stats',
-                            ttl: 30 * 24 * 60 * 60 * 1000,
-                            metadata: {
-                                pattern_type: args.pattern_type || 'coordination',
-                                storedBy: 'neural_train',
-                                type: 'pattern_statistics'
-                            }
+                        await this.memoryManager.store(statsKey, JSON.stringify(stats), 'pattern-stats', {
+                            pattern_type: args.pattern_type || 'coordination',
+                            storedBy: 'neural_train',
+                            type: 'pattern_statistics'
                         });
                         console.error(`[${new Date().toISOString()}] INFO [claude-flow-mcp] Neural pattern stored: ${modelId} (accuracy: ${patternData.accuracy.toFixed(4)})`);
                     } catch (error) {
@@ -1897,7 +1888,7 @@ let ClaudeFlowMCPServer = class ClaudeFlowMCPServer {
                 }
                 return patternData;
             case 'neural_patterns':
-                if (!this.memoryStore) {
+                if (!this.memoryManager) {
                     return {
                         success: false,
                         error: 'Shared memory system not initialized',
@@ -1908,9 +1899,8 @@ let ClaudeFlowMCPServer = class ClaudeFlowMCPServer {
                     switch(args.action){
                         case 'analyze':
                             if (args.metadata && args.metadata.modelId) {
-                                const patternValue = await this.memoryStore.retrieve(args.metadata.modelId, {
-                                    namespace: 'patterns'
-                                });
+                                const patternEntry = await this.memoryManager.get(args.metadata.modelId, 'patterns');
+                                const patternValue = patternEntry?.value;
                                 if (!patternValue) {
                                     return {
                                         success: false,
@@ -1936,7 +1926,7 @@ let ClaudeFlowMCPServer = class ClaudeFlowMCPServer {
                                     timestamp: new Date().toISOString()
                                 };
                             } else {
-                                const allPatterns = await this.memoryStore.list({
+                                const allPatterns = await this.memoryManager.query('', {
                                     namespace: 'patterns',
                                     limit: 100
                                 });
@@ -1979,15 +1969,11 @@ let ClaudeFlowMCPServer = class ClaudeFlowMCPServer {
                                 metadata: args.metadata || {},
                                 timestamp: new Date().toISOString()
                             };
-                            await this.memoryStore.store(learningId, JSON.stringify(learningData), {
-                                namespace: 'patterns',
-                                ttl: 30 * 24 * 60 * 60 * 1000,
-                                metadata: {
-                                    sessionId: this.sessionId,
-                                    storedBy: 'neural_patterns',
-                                    type: 'learning_experience',
-                                    operation: args.operation
-                                }
+                            await this.memoryManager.store(learningId, JSON.stringify(learningData), 'patterns', {
+                                sessionId: this.sessionId,
+                                storedBy: 'neural_patterns',
+                                type: 'learning_experience',
+                                operation: args.operation
                             });
                             return {
                                 success: true,
@@ -1999,9 +1985,8 @@ let ClaudeFlowMCPServer = class ClaudeFlowMCPServer {
                         case 'predict':
                             const patternType = args.metadata && args.metadata.pattern_type || 'coordination';
                             const statsKey = `stats_${patternType}`;
-                            const statsValue = await this.memoryStore.retrieve(statsKey, {
-                                namespace: 'pattern-stats'
-                            });
+                            const statsEntry = await this.memoryManager.get(statsKey, 'pattern-stats');
+                            const statsValue = statsEntry?.value;
                             if (!statsValue) {
                                 return {
                                     success: true,
@@ -2032,9 +2017,8 @@ let ClaudeFlowMCPServer = class ClaudeFlowMCPServer {
                             const requestedType = args.metadata && args.metadata.pattern_type || null;
                             if (requestedType) {
                                 const statsKey = `stats_${requestedType}`;
-                                const statsValue = await this.memoryStore.retrieve(statsKey, {
-                                    namespace: 'pattern-stats'
-                                });
+                                const statsEntry = await this.memoryManager.get(statsKey, 'pattern-stats');
+                                const statsValue = statsEntry?.value;
                                 if (!statsValue) {
                                     return {
                                         success: true,
@@ -2056,7 +2040,7 @@ let ClaudeFlowMCPServer = class ClaudeFlowMCPServer {
                                     timestamp: new Date().toISOString()
                                 };
                             } else {
-                                const allStats = await this.memoryStore.list({
+                                const allStats = await this.memoryManager.query('stats_', {
                                     namespace: 'pattern-stats',
                                     limit: 100
                                 });
