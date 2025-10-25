@@ -2,6 +2,9 @@
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { memoryStore } from '../memory/fallback-store.js';
+import { configCommand } from '../cli/simple-commands/config.js';
+import { detectExecutionEnvironment, getEnvironmentDescription } from '../cli/utils/environment-detector.ts';
+import { RuntimeDetector } from '../cli/runtime-detector.js';
 await import('./implementations/agent-tracker.js').catch(()=>{
     try {
         require('./implementations/agent-tracker');
@@ -822,139 +825,9 @@ let ClaudeFlowMCPServer = class ClaudeFlowMCPServer {
                     ]
                 }
             },
-            memory_persist: {
-                name: 'memory_persist',
-                description: 'Cross-session persistence',
-                inputSchema: {
-                    type: 'object',
-                    properties: {
-                        sessionId: {
-                            type: 'string'
-                        }
-                    }
-                }
-            },
-            memory_namespace: {
-                name: 'memory_namespace',
-                description: 'Namespace management',
-                inputSchema: {
-                    type: 'object',
-                    properties: {
-                        namespace: {
-                            type: 'string'
-                        },
-                        action: {
-                            type: 'string'
-                        }
-                    },
-                    required: [
-                        'namespace',
-                        'action'
-                    ]
-                }
-            },
-            memory_backup: {
-                name: 'memory_backup',
-                description: 'Backup memory stores',
-                inputSchema: {
-                    type: 'object',
-                    properties: {
-                        path: {
-                            type: 'string'
-                        }
-                    }
-                }
-            },
-            memory_restore: {
-                name: 'memory_restore',
-                description: 'Restore from backups',
-                inputSchema: {
-                    type: 'object',
-                    properties: {
-                        backupPath: {
-                            type: 'string'
-                        }
-                    },
-                    required: [
-                        'backupPath'
-                    ]
-                }
-            },
-            memory_compress: {
-                name: 'memory_compress',
-                description: 'Compress memory data',
-                inputSchema: {
-                    type: 'object',
-                    properties: {
-                        namespace: {
-                            type: 'string'
-                        }
-                    }
-                }
-            },
-            memory_sync: {
-                name: 'memory_sync',
-                description: 'Sync across instances',
-                inputSchema: {
-                    type: 'object',
-                    properties: {
-                        target: {
-                            type: 'string'
-                        }
-                    },
-                    required: [
-                        'target'
-                    ]
-                }
-            },
-            cache_manage: {
-                name: 'cache_manage',
-                description: 'Manage coordination cache',
-                inputSchema: {
-                    type: 'object',
-                    properties: {
-                        action: {
-                            type: 'string'
-                        },
-                        key: {
-                            type: 'string'
-                        }
-                    },
-                    required: [
-                        'action'
-                    ]
-                }
-            },
-            state_snapshot: {
-                name: 'state_snapshot',
-                description: 'Create state snapshots',
-                inputSchema: {
-                    type: 'object',
-                    properties: {
-                        name: {
-                            type: 'string'
-                        }
-                    }
-                }
-            },
-            context_restore: {
-                name: 'context_restore',
-                description: 'Restore execution context',
-                inputSchema: {
-                    type: 'object',
-                    properties: {
-                        snapshotId: {
-                            type: 'string'
-                        }
-                    },
-                    required: [
-                        'snapshotId'
-                    ]
-                }
-            },
             memory_analytics: {
                 name: 'memory_analytics',
-                description: 'Analyze memory usage',
+                description: 'Analyze MCP server process memory usage (Node.js heap, RSS, etc.)',
                 inputSchema: {
                     type: 'object',
                     properties: {
@@ -1475,24 +1348,6 @@ let ClaudeFlowMCPServer = class ClaudeFlowMCPServer {
                     },
                     required: [
                         'target'
-                    ]
-                }
-            },
-            terminal_execute: {
-                name: 'terminal_execute',
-                description: 'Execute terminal commands',
-                inputSchema: {
-                    type: 'object',
-                    properties: {
-                        command: {
-                            type: 'string'
-                        },
-                        args: {
-                            type: 'array'
-                        }
-                    },
-                    required: [
-                        'command'
                     ]
                 }
             },
@@ -2566,6 +2421,70 @@ let ClaudeFlowMCPServer = class ClaudeFlowMCPServer {
                     error: 'Performance monitor not initialized',
                     timestamp: new Date().toISOString()
                 };
+            case 'config_manage':
+                try {
+                    let output = '';
+                    const originalLog = console.log;
+                    const originalError = console.error;
+                    console.log = (...msgs)=>{
+                        output += msgs.join(' ') + '\n';
+                    };
+                    console.error = (...msgs)=>{
+                        output += msgs.join(' ') + '\n';
+                    };
+                    await configCommand([
+                        args.action
+                    ], args);
+                    console.log = originalLog;
+                    console.error = originalError;
+                    return {
+                        success: true,
+                        action: args.action,
+                        output: output.trim(),
+                        timestamp: new Date().toISOString()
+                    };
+                } catch (error) {
+                    return {
+                        success: false,
+                        error: `Configuration management failed: ${error.message}`,
+                        timestamp: new Date().toISOString()
+                    };
+                }
+            case 'features_detect':
+                try {
+                    const envInfo = detectExecutionEnvironment({
+                        skipWarnings: true
+                    });
+                    const runtimeInfo = RuntimeDetector.getPlatform();
+                    return {
+                        success: true,
+                        environment: {
+                            ...envInfo,
+                            description: getEnvironmentDescription(envInfo)
+                        },
+                        runtime: {
+                            type: RuntimeDetector.getRuntime(),
+                            platform: runtimeInfo.os,
+                            arch: runtimeInfo.arch,
+                            target: runtimeInfo.target,
+                            isNode: RuntimeDetector.isNode(),
+                            isDeno: RuntimeDetector.isDeno()
+                        },
+                        features: {
+                            wasm: RuntimeDetector.hasAPI('node') || RuntimeDetector.hasAPI('deno'),
+                            fs: RuntimeDetector.hasAPI('fs'),
+                            process: RuntimeDetector.hasAPI('process')
+                        },
+                        component: args.component || 'all',
+                        timestamp: new Date().toISOString()
+                    };
+                } catch (error) {
+                    return {
+                        success: false,
+                        error: `Feature detection failed: ${error.message}`,
+                        timestamp: new Date().toISOString()
+                    };
+                }
             default:
                 return {
                     success: true,
