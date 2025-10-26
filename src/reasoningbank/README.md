@@ -160,3 +160,44 @@ curl -H "Authorization: Bearer $OPENAI_API_KEY" \
   -d '{"model":"openai/text-embedding-3-small","input":"test"}' \
   $OPENAI_BASE_URL/embeddings
 ```
+
+## Future: AgentDB Integration (Phase 2)
+
+### Performance Gains
+AgentDB will provide 150x-12,500x faster vector search using HNSW indexing:
+
+| Database Size | SQLite (Current) | AgentDB (Planned) | Speedup |
+|---------------|------------------|-------------------|---------|
+| 100 vectors | 50ms | 0.3ms | 166x |
+| 10,000 vectors | 500ms | 0.4ms | 1,250x |
+| 1,000,000 vectors | 50s | 4ms | 12,500x |
+
+### Additional Features
+- 🧠 **Learning Plugins**: Decision Transformer, Q-Learning, SARSA, Actor-Critic
+- 🤖 **Reasoning Agents**: Pattern Matching, Context Synthesis, Memory Optimization
+- 🗜️ **Quantization**: 4x-32x memory reduction
+- 🔄 **QUIC Sync**: Multi-agent coordination
+
+### How It Works
+
+AgentDB integration will maintain our custom embedding flexibility:
+
+```javascript
+// We compute embeddings (any provider)
+const embedding = await computeCustomEmbedding(text, {
+  baseUrl: process.env.OPENAI_BASE_URL,
+  model: process.env.EMBEDDING_MODEL
+});
+
+// AgentDB handles storage/search (HNSW, learning, reasoning)
+await agentDB.insertPattern({
+  pattern_data: JSON.stringify({
+    embedding: Array.from(embedding),  // Pre-computed
+    pattern: { ... }
+  })
+});
+```
+
+**Best of both worlds**: Flexible embedding generation + blazing fast storage/retrieval!
+
+See issue #25 for implementation roadmap.
