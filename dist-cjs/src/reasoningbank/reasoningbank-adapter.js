@@ -1,5 +1,6 @@
 import * as ReasoningBank from 'agentic-flow/reasoningbank';
 import { v4 as uuidv4 } from 'uuid';
+import { computeCustomEmbedding } from './custom-embeddings.js';
 let backendInitialized = false;
 let initPromise = null;
 const queryCache = new Map();
@@ -17,6 +18,23 @@ async function ensureInitialized() {
             await ReasoningBank.initialize();
             backendInitialized = true;
             console.log('[ReasoningBank] Node.js backend initialized successfully');
+            if (process.env.OPENAI_BASE_URL || process.env.REQUESTY_BASE_URL) {
+                console.log(`[ReasoningBank] Using custom endpoint: ${process.env.OPENAI_BASE_URL || process.env.REQUESTY_BASE_URL}`);
+            }
+            try {
+                const db = ReasoningBank.db.getDatabase();
+                const existingDims = db.prepare('SELECT DISTINCT dims FROM pattern_embeddings LIMIT 1').get();
+                const configuredDims = parseInt(process.env.EMBEDDING_DIMENSIONS || '1536');
+                if (existingDims && existingDims.dims !== configuredDims) {
+                    console.warn(`[WARN] ⚠️  Embedding dimension mismatch!`);
+                    console.warn(`[WARN]   Database has: ${existingDims.dims} dimensions`);
+                    console.warn(`[WARN]   Configured:   ${configuredDims} dimensions`);
+                    console.warn(`[WARN] This will cause search failures. Options:`);
+                    console.warn(`[WARN]   1. Set EMBEDDING_DIMENSIONS=${existingDims.dims} to match database`);
+                    console.warn(`[WARN]   2. Delete .swarm/memory.db to start fresh`);
+                    console.warn(`[WARN]   3. Run migration to re-embed all entries`);
+                }
+            } catch (err) {}
             return true;
         } catch (error) {
             console.error('[ReasoningBank] Backend initialization failed:', error);
@@ -50,16 +68,27 @@ export async function storeMemory(key, value, options = {}) {
             usage_count: 0
         };
         ReasoningBank.db.upsertMemory(memory);
+        const embeddingConfig = {
+            apiKey: process.env.REQUESTY_API_KEY || process.env.OPENAI_API_KEY,
+            baseUrl: process.env.OPENAI_BASE_URL || process.env.REQUESTY_BASE_URL,
+            model: process.env.EMBEDDING_MODEL || 'text-embedding-3-small',
+            dimensions: parseInt(process.env.EMBEDDING_DIMENSIONS || '1536')
+        };
         try {
-            const embedding = await ReasoningBank.computeEmbedding(value);
+            const embedding = await computeCustomEmbedding(value, embeddingConfig);
             ReasoningBank.db.upsertEmbedding({
                 id: memoryId,
-                model: 'text-embedding-3-small',
+                model: embeddingConfig.model,
                 dims: embedding.length,
                 vector: embedding
             });
         } catch (embeddingError) {
+            const strictMode = embeddingConfig.strictMode !== undefined ? embeddingConfig.strictMode : process.env.EMBEDDING_STRICT_MODE !== 'false';
+            if (strictMode) {
+                throw new Error(`Failed to generate embedding: ${embeddingError.message}`);
+            }
             console.warn('[ReasoningBank] Failed to generate embedding:', embeddingError.message);
+            console.warn('[ReasoningBank] Continuing without embedding (set EMBEDDING_STRICT_MODE=false to allow fallback)');
         }
         queryCache.clear();
         return memoryId;
