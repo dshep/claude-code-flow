@@ -20,7 +20,7 @@ let metrics = {
  * @property {string} [baseUrl] - Base URL for API endpoint (defaults to OpenAI)
  * @property {string} [model] - Model name (defaults to text-embedding-3-small)
  * @property {number} [dimensions] - Embedding dimensions (defaults to 1536)
- * @property {boolean} [strictMode] - Fail instead of fallback to hash embeddings (defaults to false)
+ * @property {boolean} [strictMode] - Fail instead of fallback to hash embeddings (defaults to true)
  * @property {string} [providerPrefix] - Provider prefix for model name (e.g., "openai/")
  */
 
@@ -34,7 +34,9 @@ let metrics = {
 export async function computeCustomEmbedding(text, config = {}) {
   const apiKey = config.apiKey || process.env.OPENAI_API_KEY || process.env.REQUESTY_API_KEY;
   const baseUrl = config.baseUrl || process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1';
-  const strictMode = config.strictMode || process.env.EMBEDDING_STRICT_MODE === 'true';
+  const strictMode = config.strictMode !== undefined
+    ? config.strictMode
+    : (process.env.EMBEDDING_STRICT_MODE !== 'false'); // Default to true
 
   // Detect if using Requesty.ai and adjust model format
   const providerPrefix = config.providerPrefix || process.env.EMBEDDING_PROVIDER_PREFIX;

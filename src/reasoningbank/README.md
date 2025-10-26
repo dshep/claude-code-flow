@@ -17,7 +17,7 @@ Custom embedding provider with support for OpenAI-compatible APIs like Requesty.
 | `EMBEDDING_DIMENSIONS` | Embedding vector dimensions | `1536` | `3072`, `768` |
 | `EMBEDDING_PROVIDER_PREFIX` | Provider prefix for model name | Auto-detected | `openai/`, `custom/` |
 | **Behavior** | | | |
-| `EMBEDDING_STRICT_MODE` | Fail instead of fallback to hash | `false` | `true` |
+| `EMBEDDING_STRICT_MODE` | Fail instead of fallback to hash | `true` (fails by default) | `false` (to enable fallback) |
 
 ## Supported Dimensions
 
@@ -115,17 +115,24 @@ If you change `EMBEDDING_DIMENSIONS` after storing embeddings, you'll see:
 [WARN]   3. Run migration to re-embed all entries
 ```
 
-## Strict Mode
+## Strict Mode (Default Behavior)
 
-Enable strict mode to fail fast instead of falling back to hash embeddings:
+**Default**: Strict mode is **enabled by default** - API failures throw errors instead of falling back to hash embeddings.
 
 ```bash
-export EMBEDDING_STRICT_MODE=true
-
-# Now API failures throw errors instead of falling back
+# Default behavior (strict mode ON):
 npx claude-flow memory store "test" "value"
 # Error: Embedding request failed: API error 402: Insufficient balance
+
+# Disable strict mode to allow fallback to hash embeddings:
+export EMBEDDING_STRICT_MODE=false
+
+npx claude-flow memory store "test" "value"
+# [WARN] Falling back to hash embeddings
+# ✅ Stored successfully (using hash-based embeddings)
 ```
+
+**Rationale**: Failing fast ensures you know when semantic search isn't working properly, rather than silently using inferior hash-based embeddings.
 
 ## Features
 
