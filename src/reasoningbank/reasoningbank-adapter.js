@@ -122,15 +122,15 @@ export async function storeMemory(key, value, options = {}) {
     ReasoningBank.db.upsertMemory(memory);
 
     // Generate and store embedding for semantic search
-    try {
-      // Use custom embedding function that supports configurable endpoints
-      const embeddingConfig = {
-        apiKey: process.env.REQUESTY_API_KEY || process.env.OPENAI_API_KEY,
-        baseUrl: process.env.OPENAI_BASE_URL || process.env.REQUESTY_BASE_URL,
-        model: process.env.EMBEDDING_MODEL || 'text-embedding-3-small',
-        dimensions: parseInt(process.env.EMBEDDING_DIMENSIONS || '1536')
-      };
+    // Build config outside try block so it's accessible in catch
+    const embeddingConfig = {
+      apiKey: process.env.REQUESTY_API_KEY || process.env.OPENAI_API_KEY,
+      baseUrl: process.env.OPENAI_BASE_URL || process.env.REQUESTY_BASE_URL,
+      model: process.env.EMBEDDING_MODEL || 'text-embedding-3-small',
+      dimensions: parseInt(process.env.EMBEDDING_DIMENSIONS || '1536')
+    };
 
+    try {
       const embedding = await computeCustomEmbedding(value, embeddingConfig);
       ReasoningBank.db.upsertEmbedding({
         id: memoryId,
@@ -139,7 +139,17 @@ export async function storeMemory(key, value, options = {}) {
         vector: embedding
       });
     } catch (embeddingError) {
+      // In strict mode, propagate the error instead of continuing
+      const strictMode = embeddingConfig.strictMode !== undefined
+        ? embeddingConfig.strictMode
+        : (process.env.EMBEDDING_STRICT_MODE !== 'false'); // Default to true
+
+      if (strictMode) {
+        throw new Error(`Failed to generate embedding: ${embeddingError.message}`);
+      }
+
       console.warn('[ReasoningBank] Failed to generate embedding:', embeddingError.message);
+      console.warn('[ReasoningBank] Continuing without embedding (set EMBEDDING_STRICT_MODE=false to allow fallback)');
       // Continue without embedding - memory is still stored
     }
 
