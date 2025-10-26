@@ -46,6 +46,25 @@ async function ensureInitialized() {
         console.log(`[ReasoningBank] Using custom endpoint: ${process.env.OPENAI_BASE_URL || process.env.REQUESTY_BASE_URL}`);
       }
 
+      // Validate embedding dimensions match existing database
+      try {
+        const db = ReasoningBank.db.getDatabase();
+        const existingDims = db.prepare('SELECT DISTINCT dims FROM pattern_embeddings LIMIT 1').get();
+        const configuredDims = parseInt(process.env.EMBEDDING_DIMENSIONS || '1536');
+
+        if (existingDims && existingDims.dims !== configuredDims) {
+          console.warn(`[WARN] ⚠️  Embedding dimension mismatch!`);
+          console.warn(`[WARN]   Database has: ${existingDims.dims} dimensions`);
+          console.warn(`[WARN]   Configured:   ${configuredDims} dimensions`);
+          console.warn(`[WARN] This will cause search failures. Options:`);
+          console.warn(`[WARN]   1. Set EMBEDDING_DIMENSIONS=${existingDims.dims} to match database`);
+          console.warn(`[WARN]   2. Delete .swarm/memory.db to start fresh`);
+          console.warn(`[WARN]   3. Run migration to re-embed all entries`);
+        }
+      } catch (err) {
+        // Ignore validation errors (database might be empty)
+      }
+
       return true;
     } catch (error) {
       console.error('[ReasoningBank] Backend initialization failed:', error);
