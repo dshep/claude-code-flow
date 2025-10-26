@@ -10,6 +10,7 @@
 
 import * as ReasoningBank from 'agentic-flow/reasoningbank';
 import { v4 as uuidv4 } from 'uuid';
+import { computeCustomEmbedding } from './custom-embeddings.js';
 
 // Backend instance (singleton)
 let backendInitialized = false;
@@ -39,6 +40,12 @@ async function ensureInitialized() {
       await ReasoningBank.initialize();
       backendInitialized = true;
       console.log('[ReasoningBank] Node.js backend initialized successfully');
+
+      // Log custom endpoint if configured
+      if (process.env.OPENAI_BASE_URL || process.env.REQUESTY_BASE_URL) {
+        console.log(`[ReasoningBank] Using custom endpoint: ${process.env.OPENAI_BASE_URL || process.env.REQUESTY_BASE_URL}`);
+      }
+
       return true;
     } catch (error) {
       console.error('[ReasoningBank] Backend initialization failed:', error);
@@ -97,10 +104,18 @@ export async function storeMemory(key, value, options = {}) {
 
     // Generate and store embedding for semantic search
     try {
-      const embedding = await ReasoningBank.computeEmbedding(value);
+      // Use custom embedding function that supports configurable endpoints
+      const embeddingConfig = {
+        apiKey: process.env.REQUESTY_API_KEY || process.env.OPENAI_API_KEY,
+        baseUrl: process.env.OPENAI_BASE_URL || process.env.REQUESTY_BASE_URL,
+        model: process.env.EMBEDDING_MODEL || 'text-embedding-3-small',
+        dimensions: parseInt(process.env.EMBEDDING_DIMENSIONS || '1536')
+      };
+
+      const embedding = await computeCustomEmbedding(value, embeddingConfig);
       ReasoningBank.db.upsertEmbedding({
         id: memoryId,
-        model: 'text-embedding-3-small', // Default model
+        model: embeddingConfig.model,
         dims: embedding.length,
         vector: embedding
       });
