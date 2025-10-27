@@ -42,8 +42,8 @@ async function ensureInitialized() {
       console.log('[ReasoningBank] Node.js backend initialized successfully');
 
       // Log custom endpoint if configured
-      if (process.env.OPENAI_BASE_URL || process.env.REQUESTY_BASE_URL) {
-        console.log(`[ReasoningBank] Using custom endpoint: ${process.env.OPENAI_BASE_URL || process.env.REQUESTY_BASE_URL}`);
+      if (process.env.OPENAI_BASE_URL) {
+        console.log(`[ReasoningBank] Using custom endpoint: ${process.env.OPENAI_BASE_URL}`);
       }
 
       // Validate embedding dimensions match existing database
@@ -124,8 +124,8 @@ export async function storeMemory(key, value, options = {}) {
     // Generate and store embedding for semantic search
     // Build config outside try block so it's accessible in catch
     const embeddingConfig = {
-      apiKey: process.env.REQUESTY_API_KEY || process.env.OPENAI_API_KEY,
-      baseUrl: process.env.OPENAI_BASE_URL || process.env.REQUESTY_BASE_URL,
+      apiKey: process.env.OPENAI_API_KEY,
+      baseUrl: process.env.OPENAI_BASE_URL,
       model: process.env.EMBEDDING_MODEL || 'text-embedding-3-small',
       dimensions: parseInt(process.env.EMBEDDING_DIMENSIONS || '1536')
     };
@@ -176,8 +176,8 @@ async function customRetrieveMemories(query, options = {}) {
 
   // 1. Embed query using OUR custom function (not agentic-flow's hardcoded version)
   const embeddingConfig = {
-    apiKey: process.env.REQUESTY_API_KEY || process.env.OPENAI_API_KEY,
-    baseUrl: process.env.OPENAI_BASE_URL || process.env.REQUESTY_BASE_URL,
+    apiKey: process.env.OPENAI_API_KEY,
+    baseUrl: process.env.OPENAI_BASE_URL,
     model: process.env.EMBEDDING_MODEL || 'text-embedding-3-small',
     dimensions: parseInt(process.env.EMBEDDING_DIMENSIONS || '1536')
   };

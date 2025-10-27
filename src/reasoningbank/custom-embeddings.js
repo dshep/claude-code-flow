@@ -1,6 +1,6 @@
 /**
  * Custom embedding provider with configurable endpoint
- * Supports OpenAI-compatible APIs like Requesty.ai
+ * Supports any OpenAI-compatible API: OpenAI, OpenRouter, Requesty.ai, Together.ai, local models, etc.
  */
 
 const embeddingCache = new Map();
@@ -32,15 +32,15 @@ let metrics = {
  * @throws {Error} If strictMode is true and API call fails
  */
 export async function computeCustomEmbedding(text, config = {}) {
-  const apiKey = config.apiKey || process.env.OPENAI_API_KEY || process.env.REQUESTY_API_KEY;
+  const apiKey = config.apiKey || process.env.OPENAI_API_KEY;
   const baseUrl = config.baseUrl || process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1';
   const strictMode = config.strictMode !== undefined
     ? config.strictMode
     : (process.env.EMBEDDING_STRICT_MODE !== 'false'); // Default to true
 
-  // Detect if using Requesty.ai and adjust model format
+  // Auto-detect if provider prefix is needed (some routers require provider/model format)
   const providerPrefix = config.providerPrefix || process.env.EMBEDDING_PROVIDER_PREFIX;
-  const needsPrefix = baseUrl.includes('requesty.ai') || providerPrefix;
+  const needsPrefix = baseUrl.includes('requesty.ai') || baseUrl.includes('openrouter.ai') || providerPrefix;
   const baseModel = config.model || 'text-embedding-3-small';
   const model = (needsPrefix && !baseModel.includes('/'))
     ? `${providerPrefix || 'openai/'}${baseModel}`
@@ -63,7 +63,7 @@ export async function computeCustomEmbedding(text, config = {}) {
   }
 
   if (!apiKey) {
-    const errorMsg = 'No API key set (OPENAI_API_KEY or REQUESTY_API_KEY required)';
+    const errorMsg = 'No API key set (OPENAI_API_KEY required)';
     if (strictMode) {
       throw new Error(errorMsg);
     }
