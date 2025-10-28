@@ -7,11 +7,11 @@ let metrics = {
     errors: 0
 };
 export async function computeCustomEmbedding(text, config = {}) {
-    const apiKey = config.apiKey || process.env.OPENAI_API_KEY || process.env.REQUESTY_API_KEY;
+    const apiKey = config.apiKey || process.env.OPENAI_API_KEY;
     const baseUrl = config.baseUrl || process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1';
     const strictMode = config.strictMode !== undefined ? config.strictMode : process.env.EMBEDDING_STRICT_MODE !== 'false';
     const providerPrefix = config.providerPrefix || process.env.EMBEDDING_PROVIDER_PREFIX;
-    const needsPrefix = baseUrl.includes('requesty.ai') || providerPrefix;
+    const needsPrefix = baseUrl.includes('requesty.ai') || baseUrl.includes('openrouter.ai') || providerPrefix;
     const baseModel = config.model || 'text-embedding-3-small';
     const model = needsPrefix && !baseModel.includes('/') ? `${providerPrefix || 'openai/'}${baseModel}` : baseModel;
     const dimensions = config.dimensions || 1536;
@@ -32,7 +32,7 @@ export async function computeCustomEmbedding(text, config = {}) {
         return cached.embedding;
     }
     if (!apiKey) {
-        const errorMsg = 'No API key set (OPENAI_API_KEY or REQUESTY_API_KEY required)';
+        const errorMsg = 'No API key set (OPENAI_API_KEY required)';
         if (strictMode) {
             throw new Error(errorMsg);
         }
