@@ -7,8 +7,6 @@ Merge the advanced AgentDB learning hooks into `.claude/settings.local.json` (pe
 - Git-ignored (won't commit your learning data)
 - Merges with settings.json at runtime (you get both!)
 
-**Original source**: https://gist.github.com/ruvnet/112519ceca0cf1c7159f4b3b3252e948 (embedded below)
-
 ## Tasks
 
 1. **Read** the current `.claude/settings.local.json` (personal settings)
