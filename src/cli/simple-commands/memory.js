@@ -39,7 +39,7 @@ export async function memoryCommand(subArgs, flags) {
   }
 
   // NEW: Handle ReasoningBank-specific commands
-  if (mode === 'reasoningbank' && ['init', 'status', 'consolidate', 'demo', 'test', 'benchmark'].includes(memorySubcommand)) {
+  if (mode === 'reasoningbank' && ['init', 'status', 'consolidate', 'demo', 'test', 'benchmark', 'rehash'].includes(memorySubcommand)) {
     return await handleReasoningBankCommand(memorySubcommand, subArgs, flags);
   }
 
@@ -430,7 +430,7 @@ async function handleReasoningBankCommand(command, subArgs, flags) {
   const initialized = await isReasoningBankInitialized();
 
   // Lazy load the adapter (ES modules)
-  const { initializeReasoningBank, storeMemory, queryMemories, listMemories, getStatus, checkReasoningBankTables, migrateReasoningBank, cleanup } = await import('../../reasoningbank/reasoningbank-adapter.js');
+  const { initializeReasoningBank, storeMemory, queryMemories, listMemories, getStatus, checkReasoningBankTables, migrateReasoningBank, rehashEmbeddings, cleanup } = await import('../../reasoningbank/reasoningbank-adapter.js');
 
   // Special handling for 'init' command
   if (command === 'init') {
@@ -535,11 +535,43 @@ async function handleReasoningBankCommand(command, subArgs, flags) {
         await handleReasoningBankStatus(getStatus);
         break;
 
+      case 'rehash':
+        await handleReasoningBankRehash(subArgs, flags, rehashEmbeddings);
+        break;
+
       case 'consolidate':
+        // Informational note for consolidate command
+        printInfo('ℹ️  Consolidate will use your current embedding configuration');
+        const apiKey = process.env.OPENAI_API_KEY;
+        if (apiKey) {
+          console.log('   Using: Real API embeddings (OPENAI_API_KEY detected)');
+        } else {
+          console.log('   Using: Hash embeddings (no OPENAI_API_KEY)');
+          console.log('   💡 Tip: Set OPENAI_API_KEY for better semantic accuracy\n');
+        }
+        // Execute consolidate command
+        const consolidateCmd = `npx agentic-flow reasoningbank consolidate`;
+        const { stdout: consolidateOut } = await execAsync(consolidateCmd, { timeout: 60000 });
+        if (consolidateOut) console.log(consolidateOut);
+        break;
+
       case 'demo':
       case 'test':
       case 'benchmark':
-        // These still use CLI commands
+        // Warn if using hash embeddings for demo/test/benchmark
+        const hasApiKey = process.env.OPENAI_API_KEY;
+
+        if (!hasApiKey) {
+          printWarning(`⚠️  Running ${command} with hash embeddings (no OPENAI_API_KEY)`);
+          console.log('   Hash embeddings are deterministic but less accurate than real embeddings.');
+          console.log('   For best results, set OPENAI_API_KEY to use real embeddings.\n');
+          console.log('   Continue? Press Ctrl+C to cancel, or wait 3 seconds...\n');
+
+          // Simple 3-second countdown
+          await new Promise(resolve => setTimeout(resolve, 3000));
+        }
+
+        // Execute command
         const cmd = `npx agentic-flow reasoningbank ${command}`;
         const { stdout } = await execAsync(cmd, { timeout: 60000 });
         if (stdout) console.log(stdout);
@@ -671,6 +703,46 @@ async function handleReasoningBankStatus(getStatus) {
     console.log(`   Trajectories: ${stats.total_trajectories}`);
   } catch (error) {
     printError(`Failed to get status: ${error.message}`);
+  }
+}
+
+// NEW: Handle ReasoningBank rehash
+async function handleReasoningBankRehash(subArgs, flags, rehashEmbeddings) {
+  try {
+    const dryRun = flags?.dryRun || flags?.['dry-run'] || subArgs.includes('--dry-run');
+    const verbose = flags?.verbose || flags?.v || subArgs.includes('--verbose') || subArgs.includes('-v');
+
+    if (!dryRun) {
+      printWarning('⚠️  IMPORTANT: This will regenerate all hash embeddings in the database!');
+      console.log('   Recommendation: Run with --dry-run first to preview changes\n');
+      console.log('   Backup location: .swarm/memory.db');
+      console.log('   Press Ctrl+C to cancel, or wait 3 seconds to continue...\n');
+
+      // Simple 3-second countdown
+      await new Promise(resolve => setTimeout(resolve, 3000));
+    }
+
+    const options = { dryRun, verbose };
+    const result = await rehashEmbeddings(options);
+
+    if (result.dryRun) {
+      printSuccess(`🔍 DRY RUN Complete`);
+    } else {
+      printSuccess(`✅ Rehash Complete`);
+    }
+
+    console.log(`   Scanned: ${result.scanned} embeddings`);
+    console.log(`   Updated: ${result.updated} embeddings`);
+
+    if (result.errors > 0) {
+      printWarning(`   Errors: ${result.errors} embeddings failed`);
+    }
+
+    if (result.dryRun) {
+      console.log('\n💡 To apply changes, run without --dry-run flag');
+    }
+  } catch (error) {
+    printError(`Failed to rehash embeddings: ${error.message}`);
   }
 }
 
@@ -844,6 +916,7 @@ function showMemoryHelp() {
   console.log('🧠 ReasoningBank Commands (NEW in v2.7.0):');
   console.log('  init --reasoningbank   Initialize ReasoningBank (AI-powered memory)');
   console.log('  status --reasoningbank Show ReasoningBank statistics');
+  console.log('  rehash --reasoningbank Regenerate hash embeddings with current algorithm');
   console.log('  detect                 Show available memory modes');
   console.log('  mode                   Show current memory configuration');
   console.log('  migrate --to <mode>    Migrate between basic/reasoningbank');
@@ -877,6 +950,8 @@ function showMemoryHelp() {
   console.log('  memory store api_pattern "Always use env vars" --reasoningbank');
   console.log('  memory query "API configuration" --reasoningbank  # Semantic search!');
   console.log('  memory status --reasoningbank  # Show AI metrics');
+  console.log('  memory rehash --reasoningbank --dry-run  # Preview hash migration');
+  console.log('  memory rehash --reasoningbank  # Apply hash migration');
   console.log();
   console.log('  # Auto-detect mode (smart selection)');
   console.log('  memory query config --auto  # Uses ReasoningBank if available');

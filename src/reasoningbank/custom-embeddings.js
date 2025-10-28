@@ -130,17 +130,79 @@ export async function computeCustomEmbedding(text, config = {}) {
 }
 
 /**
- * Deterministic hash-based embedding fallback
+ * Normalize vector to unit length (magnitude = 1.0)
+ * @param {Float32Array} vec - Vector to normalize
+ * @returns {Float32Array} Normalized vector
+ */
+function normalize(vec) {
+  let magnitude = 0;
+  for (let i = 0; i < vec.length; i++) {
+    magnitude += vec[i] * vec[i];
+  }
+  magnitude = Math.sqrt(magnitude);
+
+  // Handle zero vector safely
+  if (magnitude === 0) {
+    console.warn('[WARN] Cannot normalize zero vector, returning as-is');
+    return vec;
+  }
+
+  // Create normalized copy
+  const normalized = new Float32Array(vec.length);
+  for (let i = 0; i < vec.length; i++) {
+    normalized[i] = vec[i] / magnitude;
+  }
+
+  return normalized;
+}
+
+/**
+ * Deterministic hash-based embedding fallback with versioning
+ *
+ * Version 1 (legacy):
+ * - Uses raw sin/cos without normalization
+ * - Can produce negative hash values
+ * - Scaled by 0.1 and 0.05
+ *
+ * Version 2 (current, agentic-flow compatible):
+ * - Normalizes vectors to unit length
+ * - Uses Math.abs() for positive hash
+ * - Full scale sin/cos (no scaling factors)
+ *
+ * Environment Variables:
+ * - HASH_ALGORITHM_VERSION: "1" or "2" (default: "2")
+ * - USE_LEGACY_HASH: "true" to force version 1
+ *
+ * @param {string} text - Text to hash embed
+ * @param {number} dims - Vector dimensions
+ * @returns {Float32Array} Hash embedding
  */
 function hashEmbed(text, dims) {
-  const hash = simpleHash(text);
-  const vec = new Float32Array(dims);
-  
-  for (let i = 0; i < dims; i++) {
-    vec[i] = Math.sin(hash * (i + 1) * 0.01) * 0.1 + Math.cos(hash * i * 0.02) * 0.05;
+  const version = parseInt(process.env.HASH_ALGORITHM_VERSION || '2');
+  const useLegacy = process.env.USE_LEGACY_HASH === 'true' || version === 1;
+
+  if (useLegacy) {
+    // Version 1: Legacy algorithm (backward compatibility)
+    const hash = simpleHash(text);
+    const vec = new Float32Array(dims);
+
+    for (let i = 0; i < dims; i++) {
+      vec[i] = Math.sin(hash * (i + 1) * 0.01) * 0.1 + Math.cos(hash * i * 0.02) * 0.05;
+    }
+
+    return vec; // Not normalized
   }
-  
-  return vec;
+
+  // Version 2: Agentic-flow compatible (default)
+  const hash = Math.abs(simpleHash(text)); // Ensure positive hash
+  const vec = new Float32Array(dims);
+
+  for (let i = 0; i < dims; i++) {
+    // Full scale without reduction factors
+    vec[i] = Math.sin(hash * (i + 1) * 0.01) + Math.cos(hash * i * 0.02);
+  }
+
+  return normalize(vec); // Normalized to unit length
 }
 
 function simpleHash(str) {
@@ -148,7 +210,7 @@ function simpleHash(str) {
   for (let i = 0; i < str.length; i++) {
     const char = str.charCodeAt(i);
     hash = ((hash << 5) - hash) + char;
-    hash = hash & hash;
+    hash = hash | 0; // Force 32-bit signed integer
   }
   return hash;
 }

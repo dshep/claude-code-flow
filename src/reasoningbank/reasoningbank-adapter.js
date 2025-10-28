@@ -501,6 +501,124 @@ function setCachedQuery(searchQuery, options, results) {
 }
 
 /**
+ * Re-hash all embeddings using current hash algorithm version
+ *
+ * This function updates embeddings that were created with the hash fallback
+ * to use the current hash algorithm version (v1 or v2).
+ *
+ * ⚠️  IMPORTANT: Backup your database before running this migration!
+ *    cp .swarm/memory.db .swarm/memory.db.backup
+ *
+ * @param {Object} options - Migration options
+ * @param {boolean} options.dryRun - If true, only show what would be changed
+ * @param {boolean} options.verbose - Show detailed progress
+ * @returns {Promise<Object>} Migration statistics { scanned, updated, dryRun }
+ */
+export async function rehashEmbeddings(options = {}) {
+  await ensureInitialized();
+
+  const { dryRun = false, verbose = false } = options;
+
+  console.log('[ReasoningBank] 🔄 Starting rehash migration...');
+  console.warn('[WARN] ⚠️  IMPORTANT: Ensure you have backed up .swarm/memory.db');
+
+  if (dryRun) {
+    console.log('[ReasoningBank] 🔍 DRY RUN MODE - No changes will be made');
+  }
+
+  const db = ReasoningBank.db.getDb();
+
+  // Find all embeddings (we'll check which ones need rehashing)
+  const allEmbeddings = db.prepare(`
+    SELECT pe.id, p.pattern_data, pe.dims, pe.model, pe.vector
+    FROM pattern_embeddings pe
+    JOIN patterns p ON pe.id = p.id
+  `).all();
+
+  console.log(`[ReasoningBank] Found ${allEmbeddings.length} total embeddings`);
+
+  // Import hash function from custom-embeddings
+  const { computeCustomEmbedding } = await import('./custom-embeddings.js');
+
+  let scanned = 0;
+  let updated = 0;
+  let errors = 0;
+
+  for (const row of allEmbeddings) {
+    scanned++;
+
+    try {
+      // Extract text from pattern data
+      const data = typeof row.pattern_data === 'string'
+        ? JSON.parse(row.pattern_data)
+        : row.pattern_data;
+
+      const text = data.content || data.value || data.description || data.title || '';
+
+      if (!text) {
+        if (verbose) {
+          console.warn(`[WARN] Skipping ${row.id}: no text content`);
+        }
+        continue;
+      }
+
+      // Force hash embedding by not providing API key
+      const embeddingConfig = {
+        apiKey: null, // Force hash fallback
+        dimensions: row.dims,
+        strictMode: false // Allow fallback
+      };
+
+      // Temporarily disable strict mode for rehashing
+      const oldStrictMode = process.env.EMBEDDING_STRICT_MODE;
+      process.env.EMBEDDING_STRICT_MODE = 'false';
+
+      const newEmbedding = await computeCustomEmbedding(text, embeddingConfig);
+
+      // Restore strict mode
+      if (oldStrictMode !== undefined) {
+        process.env.EMBEDDING_STRICT_MODE = oldStrictMode;
+      } else {
+        delete process.env.EMBEDDING_STRICT_MODE;
+      }
+
+      if (!dryRun) {
+        // Update embedding in database
+        ReasoningBank.db.upsertEmbedding({
+          id: row.id,
+          model: 'hash-v2',
+          dims: newEmbedding.length,
+          vector: newEmbedding
+        });
+      }
+
+      updated++;
+
+      if (verbose && updated % 10 === 0) {
+        console.log(`[ReasoningBank] Progress: ${updated}/${allEmbeddings.length}`);
+      }
+    } catch (error) {
+      errors++;
+      console.error(`[ERROR] Failed to rehash ${row.id}:`, error.message);
+    }
+  }
+
+  console.log(`[ReasoningBank] ✅ Migration complete!`);
+  console.log(`[ReasoningBank]   Scanned: ${scanned} embeddings`);
+  console.log(`[ReasoningBank]   Updated: ${updated} embeddings`);
+  if (errors > 0) {
+    console.log(`[ReasoningBank]   Errors: ${errors} embeddings`);
+  }
+
+  if (dryRun) {
+    console.log(`[ReasoningBank] 🔍 DRY RUN - No changes were made`);
+    console.log(`[ReasoningBank] Run without --dry-run to apply changes`);
+  }
+
+  return { scanned, updated, errors, dryRun };
+}
+
+/**
  * Close database connection and cleanup resources
  * Should be called when done with ReasoningBank operations
  */
