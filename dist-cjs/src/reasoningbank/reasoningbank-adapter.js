@@ -97,6 +97,58 @@ export async function storeMemory(key, value, options = {}) {
         throw new Error(`Failed to store memory: ${error.message}`);
     }
 }
+async function customRetrieveMemories(query, options = {}) {
+    const config = ReasoningBank.loadConfig();
+    const k = options.k || config.retrieve.k;
+    const startTime = Date.now();
+    console.log(`[INFO] Retrieving memories for query: ${query.substring(0, 100)}...`);
+    const embeddingConfig = {
+        apiKey: process.env.REQUESTY_API_KEY || process.env.OPENAI_API_KEY,
+        baseUrl: process.env.OPENAI_BASE_URL || process.env.REQUESTY_BASE_URL,
+        model: process.env.EMBEDDING_MODEL || 'text-embedding-3-small',
+        dimensions: parseInt(process.env.EMBEDDING_DIMENSIONS || '1536')
+    };
+    const queryEmbed = await computeCustomEmbedding(query, embeddingConfig);
+    const candidates = ReasoningBank.db.fetchMemoryCandidates({
+        domain: options.domain,
+        agent: options.agent,
+        minConfidence: config.retrieve.min_score
+    });
+    if (candidates.length === 0) {
+        console.log('[INFO] No memory candidates found');
+        return [];
+    }
+    console.log(`[INFO] Found ${candidates.length} candidates`);
+    const scored = candidates.map((item)=>{
+        const similarity = ReasoningBank.cosineSimilarity(queryEmbed, item.embedding);
+        const recency = Math.exp(-item.age_days / config.retrieve.recency_half_life_days);
+        const reliability = Math.min(item.confidence, 1.0);
+        const baseScore = config.retrieve.alpha * similarity + config.retrieve.beta * recency + config.retrieve.gamma * reliability;
+        return {
+            ...item,
+            score: baseScore,
+            components: {
+                similarity,
+                recency,
+                reliability
+            }
+        };
+    });
+    const selected = ReasoningBank.mmrSelection(scored, queryEmbed, k, config.retrieve.delta);
+    for (const mem of selected){
+        ReasoningBank.db.incrementUsage(mem.id);
+    }
+    const duration = Date.now() - startTime;
+    console.log(`[INFO] Retrieval complete: ${selected.length} memories in ${duration}ms`);
+    return selected.map((item)=>({
+            id: item.id,
+            title: item.pattern_data.title,
+            description: item.pattern_data.description,
+            content: item.pattern_data.content,
+            score: item.score,
+            components: item.components
+        }));
+}
 export async function queryMemories(searchQuery, options = {}) {
     const cached = getCachedQuery(searchQuery, options);
     if (cached) {
@@ -106,7 +158,7 @@ export async function queryMemories(searchQuery, options = {}) {
     const limit = options.limit || 10;
     const namespace = options.namespace || options.domain || 'default';
     try {
-        const results = await ReasoningBank.retrieveMemories(searchQuery, {
+        const results = await customRetrieveMemories(searchQuery, {
             domain: namespace,
             agent: options.agent || 'query-agent',
             k: limit,

@@ -42,8 +42,8 @@ async function ensureInitialized() {
       console.log('[ReasoningBank] Node.js backend initialized successfully');
 
       // Log custom endpoint if configured
-      if (process.env.OPENAI_BASE_URL || process.env.REQUESTY_BASE_URL) {
-        console.log(`[ReasoningBank] Using custom endpoint: ${process.env.OPENAI_BASE_URL || process.env.REQUESTY_BASE_URL}`);
+      if (process.env.OPENAI_BASE_URL) {
+        console.log(`[ReasoningBank] Using custom endpoint: ${process.env.OPENAI_BASE_URL}`);
       }
 
       // Validate embedding dimensions match existing database
@@ -124,8 +124,8 @@ export async function storeMemory(key, value, options = {}) {
     // Generate and store embedding for semantic search
     // Build config outside try block so it's accessible in catch
     const embeddingConfig = {
-      apiKey: process.env.REQUESTY_API_KEY || process.env.OPENAI_API_KEY,
-      baseUrl: process.env.OPENAI_BASE_URL || process.env.REQUESTY_BASE_URL,
+      apiKey: process.env.OPENAI_API_KEY,
+      baseUrl: process.env.OPENAI_BASE_URL,
       model: process.env.EMBEDDING_MODEL || 'text-embedding-3-small',
       dimensions: parseInt(process.env.EMBEDDING_DIMENSIONS || '1536')
     };
@@ -164,9 +164,83 @@ export async function storeMemory(key, value, options = {}) {
 }
 
 /**
+ * Custom retrieve memories implementation that uses our custom embedding function
+ * This ensures query embeddings use the same endpoint as storage embeddings
+ */
+async function customRetrieveMemories(query, options = {}) {
+  const config = ReasoningBank.loadConfig();
+  const k = options.k || config.retrieve.k;
+  const startTime = Date.now();
+
+  console.log(`[INFO] Retrieving memories for query: ${query.substring(0, 100)}...`);
+
+  // 1. Embed query using OUR custom function (not agentic-flow's hardcoded version)
+  const embeddingConfig = {
+    apiKey: process.env.OPENAI_API_KEY,
+    baseUrl: process.env.OPENAI_BASE_URL,
+    model: process.env.EMBEDDING_MODEL || 'text-embedding-3-small',
+    dimensions: parseInt(process.env.EMBEDDING_DIMENSIONS || '1536')
+  };
+
+  const queryEmbed = await computeCustomEmbedding(query, embeddingConfig);
+
+  // 2. Fetch candidates from database
+  const candidates = ReasoningBank.db.fetchMemoryCandidates({
+    domain: options.domain,
+    agent: options.agent,
+    minConfidence: config.retrieve.min_score
+  });
+
+  if (candidates.length === 0) {
+    console.log('[INFO] No memory candidates found');
+    return [];
+  }
+
+  console.log(`[INFO] Found ${candidates.length} candidates`);
+
+  // 3. Score each candidate with 4-factor model (using MMR utilities from agentic-flow)
+  const scored = candidates.map(item => {
+    const similarity = ReasoningBank.cosineSimilarity(queryEmbed, item.embedding);
+    const recency = Math.exp(-item.age_days / config.retrieve.recency_half_life_days);
+    const reliability = Math.min(item.confidence, 1.0);
+    const baseScore = config.retrieve.alpha * similarity +
+                     config.retrieve.beta * recency +
+                     config.retrieve.gamma * reliability;
+
+    return {
+      ...item,
+      score: baseScore,
+      components: { similarity, recency, reliability }
+    };
+  });
+
+  // 4. MMR selection for diversity
+  const selected = ReasoningBank.mmrSelection(scored, queryEmbed, k, config.retrieve.delta);
+
+  // 5. Record usage for selected memories
+  for (const mem of selected) {
+    ReasoningBank.db.incrementUsage(mem.id);
+  }
+
+  const duration = Date.now() - startTime;
+  console.log(`[INFO] Retrieval complete: ${selected.length} memories in ${duration}ms`);
+
+  // Map to expected format
+  return selected.map(item => ({
+    id: item.id,
+    title: item.pattern_data.title,
+    description: item.pattern_data.description,
+    content: item.pattern_data.content,
+    score: item.score,
+    components: item.components
+  }));
+}
+
+/**
  * Query memories from ReasoningBank (Node.js backend with semantic search)
  *
- * Uses retrieveMemories for semantic search via embeddings and MMR ranking
+ * Uses customRetrieveMemories for semantic search via embeddings and MMR ranking
+ * This ensures both storage and query use the same custom endpoint
  * Fallback to database query if semantic search fails
  */
 export async function queryMemories(searchQuery, options = {}) {
@@ -182,8 +256,9 @@ export async function queryMemories(searchQuery, options = {}) {
   const namespace = options.namespace || options.domain || 'default';
 
   try {
-    // Try semantic search first using retrieveMemories
-    const results = await ReasoningBank.retrieveMemories(searchQuery, {
+    // Use our custom embedding function for query instead of ReasoningBank.retrieveMemories
+    // to ensure we use the configured endpoint (Requesty.ai, custom, etc.)
+    const results = await customRetrieveMemories(searchQuery, {
       domain: namespace,
       agent: options.agent || 'query-agent',
       k: limit,

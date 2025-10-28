@@ -1,17 +1,15 @@
 # ReasoningBank Embedding Configuration
 
-Custom embedding provider with support for OpenAI-compatible APIs like Requesty.ai.
+Custom embedding provider with support for any OpenAI-compatible API including OpenAI, OpenRouter, Requesty.ai, Together.ai, and local models.
 
 ## Environment Variables
 
 | Variable | Description | Default | Example |
 |----------|-------------|---------|---------|
 | **Endpoint Configuration** | | | |
-| `OPENAI_BASE_URL` | Custom OpenAI-compatible endpoint | `https://api.openai.com/v1` | `https://router.requesty.ai/v1` |
-| `REQUESTY_BASE_URL` | Requesty.ai endpoint (alternative) | - | `https://router.requesty.ai/v1` |
+| `OPENAI_BASE_URL` | Custom OpenAI-compatible endpoint | `https://api.openai.com/v1` | `https://openrouter.ai/api/v1` |
 | **Authentication** | | | |
-| `OPENAI_API_KEY` | OpenAI or compatible API key | - | `sk-proj-...` |
-| `REQUESTY_API_KEY` | Requesty.ai API key (alternative) | - | `sk-uXnF...` |
+| `OPENAI_API_KEY` | API key for embedding service | - | `sk-proj-...`, `sk-or-v1-...` |
 | **Model Configuration** | | | |
 | `EMBEDDING_MODEL` | Embedding model name | `text-embedding-3-small` | `text-embedding-3-large` |
 | `EMBEDDING_DIMENSIONS` | Embedding vector dimensions | `1536` | `3072`, `768` |
@@ -30,26 +28,42 @@ Common embedding dimensions by model:
 
 ## API Providers
 
-### OpenAI (Default)
+### OpenAI (Default - Zero Config)
 ```bash
+# Just set the API key - uses OpenAI endpoint automatically
 export OPENAI_API_KEY=sk-proj-...
-# Uses https://api.openai.com/v1/embeddings
+# Automatically uses: https://api.openai.com/v1/embeddings
 ```
 
-### Requesty.ai Router
+### OpenRouter
+```bash
+export OPENAI_BASE_URL=https://openrouter.ai/api/v1
+export OPENAI_API_KEY=sk-or-v1-...
+export EMBEDDING_MODEL=text-embedding-3-small
+export EMBEDDING_PROVIDER_PREFIX=openai/  # If needed
+```
+
+### Requesty.ai
 ```bash
 export OPENAI_BASE_URL=https://router.requesty.ai/v1
-export OPENAI_API_KEY=sk-uXnF...
-export EMBEDDING_MODEL=text-embedding-3-small
+export OPENAI_API_KEY=your-key
+export EMBEDDING_PROVIDER_PREFIX=openai/  # Auto-detected
 ```
 
-**Note**: Requesty.ai requires model format as `provider/model` (e.g., `openai/text-embedding-3-small`). This is auto-detected and formatted.
-
-### Other OpenAI-Compatible APIs
+### Together.ai
 ```bash
-export OPENAI_BASE_URL=https://your-api.com/v1
-export OPENAI_API_KEY=your-key
-export EMBEDDING_PROVIDER_PREFIX=yourprovider/  # If needed
+export OPENAI_BASE_URL=https://api.together.xyz/v1
+export OPENAI_API_KEY=...
+export EMBEDDING_MODEL=togethercomputer/m2-bert-80M-8k-retrieval
+export EMBEDDING_DIMENSIONS=768
+```
+
+### Local Ollama
+```bash
+export OPENAI_BASE_URL=http://localhost:11434/v1
+export OPENAI_API_KEY=none  # Ollama doesn't require auth
+export EMBEDDING_MODEL=nomic-embed-text
+export EMBEDDING_DIMENSIONS=768
 ```
 
 ## Configuration File
@@ -69,9 +83,12 @@ reasoningbank:
 
 ### Store with Semantic Search
 ```bash
-# Export environment variables first
-export OPENAI_BASE_URL=https://router.requesty.ai/v1
-export OPENAI_API_KEY=sk-uXnF...
+# With OpenAI (default - zero config):
+export OPENAI_API_KEY=sk-proj-...
+
+# Or with custom provider (e.g., OpenRouter):
+export OPENAI_BASE_URL=https://openrouter.ai/api/v1
+export OPENAI_API_KEY=sk-or-v1-...
 
 # Store memories (embeddings generated automatically)
 npx claude-flow memory store "ai/concepts" "Machine learning with neural networks"
@@ -81,7 +98,7 @@ npx claude-flow memory store "recipes/dessert" "Chocolate cake with vanilla fros
 npx claude-flow memory query "deep learning" --namespace default
 # Returns: ai/concepts (high score)
 
-npx claude-flow memory query "baking" --namespace default  
+npx claude-flow memory query "baking" --namespace default
 # Returns: recipes/dessert (high score)
 ```
 
@@ -137,7 +154,7 @@ npx claude-flow memory store "test" "value"
 ## Features
 
 - ✅ **Configurable endpoints** - Use any OpenAI-compatible API
-- ✅ **Auto-detection** - Requesty.ai model format handled automatically
+- ✅ **Auto-detection** - Provider-specific model formatting (Requesty.ai, OpenRouter, etc.)
 - ✅ **LRU caching** - 1-hour TTL, max 100 entries
 - ✅ **Graceful fallback** - Hash-based embeddings if API fails
 - ✅ **Metrics tracking** - API calls, cache hits, errors
@@ -147,7 +164,7 @@ npx claude-flow memory store "test" "value"
 ## Troubleshooting
 
 ### API Error 402: Insufficient Balance
-Top up your Requesty.ai account at https://app.requesty.ai/settings
+Add credits to your provider account (OpenRouter, Requesty.ai, etc.)
 
 ### Dimension Mismatch Errors
 Delete `.swarm/memory.db` or set `EMBEDDING_DIMENSIONS` to match existing database.
@@ -155,10 +172,11 @@ Delete `.swarm/memory.db` or set `EMBEDDING_DIMENSIONS` to match existing databa
 ### Falling Back to Hash Embeddings
 Check that API key is set and endpoint is reachable:
 ```bash
+# Test your endpoint
 curl -H "Authorization: Bearer $OPENAI_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"model":"openai/text-embedding-3-small","input":"test"}' \
-  $OPENAI_BASE_URL/embeddings
+  -d '{"model":"text-embedding-3-small","input":"test"}' \
+  ${OPENAI_BASE_URL:-https://api.openai.com/v1}/embeddings
 ```
 
 ## Future: AgentDB Integration (Phase 2)
