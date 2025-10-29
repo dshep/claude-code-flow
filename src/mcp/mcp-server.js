@@ -12,9 +12,6 @@ import { EnhancedMemory } from '../memory/enhanced-memory.js';
 // Use the same memory system that npx commands use - singleton instance
 import { memoryStore } from '../memory/fallback-store.js';
 // Import CLI implementations for MCP tools
-import { configCommand } from '../cli/simple-commands/config.js';
-import { detectExecutionEnvironment, getEnvironmentDescription } from '../cli/utils/environment-detector.js';
-import { RuntimeDetector } from '../cli/runtime-detector.js';
 
 // Initialize agent tracker
 await import('./implementations/agent-tracker.js').catch(() => {
