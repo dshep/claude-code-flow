@@ -63,6 +63,22 @@ export class WorkflowExecutor {
             }
             this.validateWorkflow(workflowData);
             const processedWorkflow = this.applyVariables(workflowData, variables);
+            if (Object.keys(variables).length > 0 && this.options.logLevel !== 'quiet') {
+                console.log(`📝 Applied Variables:`);
+                for (const [key, value] of Object.entries(variables)){
+                    const displayValue = typeof value === 'string' && value.length > 80 ? value.substring(0, 80) + '...' : JSON.stringify(value);
+                    console.log(`   ${key}: ${displayValue}`);
+                }
+                console.log();
+            }
+            if (processedWorkflow.variables && Object.keys(processedWorkflow.variables).length > 0 && this.options.logLevel !== 'quiet') {
+                console.log(`🎯 Workflow Variables (final):`);
+                for (const [key, value] of Object.entries(processedWorkflow.variables)){
+                    const displayValue = typeof value === 'string' && value.length > 80 ? value.substring(0, 80) + '...' : typeof value === 'object' ? JSON.stringify(value) : value;
+                    console.log(`   ${key}: ${displayValue}`);
+                }
+                console.log();
+            }
             if (this.options.enableClaude) {
                 await this.initializeClaudeAgents(processedWorkflow.agents);
             }
@@ -152,7 +168,7 @@ export class WorkflowExecutor {
             return false;
         }
     }
-    async spawnClaudeInstance(agent1, prompt, options = {}) {
+    async spawnClaudeInstance(agent, prompt, options = {}) {
         const claudeArgs = [];
         if (this.options.nonInteractive) {
             claudeArgs.push('--print');
@@ -169,9 +185,9 @@ export class WorkflowExecutor {
         if (this.options.logLevel === 'debug') {
             const displayPrompt = prompt.length > 100 ? prompt.substring(0, 100) + '...' : prompt;
             const flagsDisplay = this.options.nonInteractive ? this.options.outputFormat === 'stream-json' ? options.inputStream ? '--print --input-format stream-json --output-format stream-json --verbose --dangerously-skip-permissions' : '--print --output-format stream-json --verbose --dangerously-skip-permissions' : '--print --dangerously-skip-permissions' : '--dangerously-skip-permissions';
-            console.log(`    🤖 Spawning Claude for ${agent1.name}: claude ${flagsDisplay} "${displayPrompt}"`);
+            console.log(`    🤖 Spawning Claude for ${agent.name}: claude ${flagsDisplay} "${displayPrompt}"`);
         } else if (this.options.logLevel !== 'quiet') {
-            console.log(`    🚀 Starting ${agent1.name}`);
+            console.log(`    🚀 Starting ${agent.name}`);
         }
         const stdioConfig = this.options.nonInteractive ? [
             options.inputStream ? 'pipe' : 'inherit',
@@ -187,23 +203,23 @@ export class WorkflowExecutor {
             shell: false
         });
         if (options.inputStream && claudeProcess.stdin) {
-            console.log(`    🔗 Chaining: Piping output from previous agent to ${agent1.name}`);
+            console.log(`    🔗 Chaining: Piping output from previous agent to ${agent.name}`);
             options.inputStream.pipe(claudeProcess.stdin);
         }
         if (this.options.nonInteractive && this.options.outputFormat === 'stream-json' && claudeProcess.stdout) {
             const { createStreamProcessor } = await import('./stream-processor.js');
-            const streamProcessor = createStreamProcessor(agent1.name, this.getAgentIcon(agent1.id), {
+            const streamProcessor = createStreamProcessor(agent.name, this.getAgentIcon(agent.id), {
                 verbose: this.options.logLevel === 'debug',
                 logLevel: this.options.logLevel,
-                taskId: agent1.taskId,
-                agentId: agent1.id,
+                taskId: agent.taskId,
+                agentId: agent.id,
                 display: null
             });
             claudeProcess.stdout.pipe(streamProcessor);
             claudeProcess.stderr.on('data', (data)=>{
                 const message = data.toString().trim();
                 if (message) {
-                    console.error(`    ❌ [${agent1.name}] Error: ${message}`);
+                    console.error(`    ❌ [${agent.name}] Error: ${message}`);
                 }
             });
         } else if (this.options.nonInteractive && this.options.outputFormat !== 'stream-json') {
@@ -215,16 +231,16 @@ export class WorkflowExecutor {
             });
         }
         claudeProcess.on('error', (error)=>{
-            console.error(`❌ Claude instance error for ${agent1.name}:`, error.message);
+            console.error(`❌ Claude instance error for ${agent.name}:`, error.message);
             this.errors.push({
                 type: 'claude_instance_error',
-                agent: agent1.id,
+                agent: agent.id,
                 error: error.message,
                 timestamp: new Date()
             });
         });
         claudeProcess.on('exit', (code)=>{
-            const instance = this.claudeInstances.get(agent1.id);
+            const instance = this.claudeInstances.get(agent.id);
             if (instance) {
                 instance.status = code === 0 ? 'completed' : 'failed';
                 instance.exitCode = code;
@@ -233,13 +249,13 @@ export class WorkflowExecutor {
         });
         return claudeProcess;
     }
-    handleClaudeStreamEvent(agent1, event) {
+    handleClaudeStreamEvent(agent, event) {
         if (this.options.outputFormat === 'stream-json') {
             const summary = this.getEventSummary(event);
             const icon = this.getEventIcon(event.type);
             const output = {
                 t: new Date().toISOString().split('T')[1].split('.')[0],
-                agent: `${this.getAgentIcon(agent1.id)} ${agent1.name}`,
+                agent: `${this.getAgentIcon(agent.id)} ${agent.name}`,
                 phase: this.currentPhase,
                 event: `${icon} ${summary}`
             };
@@ -252,20 +268,20 @@ export class WorkflowExecutor {
         } else {
             switch(event.type){
                 case 'tool_use':
-                    console.log(`    [${agent1.name}] 🔧 Using tool: ${event.name}`);
+                    console.log(`    [${agent.name}] 🔧 Using tool: ${event.name}`);
                     break;
                 case 'message':
-                    console.log(`    [${agent1.name}] 💬 ${event.content}`);
+                    console.log(`    [${agent.name}] 💬 ${event.content}`);
                     break;
                 case 'completion':
-                    console.log(`    [${agent1.name}] ✅ Task completed`);
+                    console.log(`    [${agent.name}] ✅ Task completed`);
                     break;
                 case 'error':
-                    console.error(`    [${agent1.name}] ❌ Error: ${event.error}`);
+                    console.error(`    [${agent.name}] ❌ Error: ${event.error}`);
                     break;
                 default:
                     if (this.options.logLevel === 'debug') {
-                        console.log(`    [${agent1.name}] ${event.type}: ${JSON.stringify(event)}`);
+                        console.log(`    [${agent.name}] ${event.type}: ${JSON.stringify(event)}`);
                     }
             }
         }
@@ -299,7 +315,7 @@ export class WorkflowExecutor {
         };
         return icons[eventType] || '📌';
     }
-    createTaskPrompt(task, agent1, workflow) {
+    createTaskPrompt(task, agent, workflow) {
         if (task.claudePrompt) {
             let basePrompt = task.claudePrompt;
             const allVariables = {
@@ -312,19 +328,19 @@ export class WorkflowExecutor {
             }
             return `🎯 MLE-STAR AGENT TASK EXECUTION
 
-You are the **${agent1.name}** (${agent1.type}) in a coordinated MLE-STAR automation workflow.
+You are the **${agent.name}** (${agent.type}) in a coordinated MLE-STAR automation workflow.
 
 📋 IMMEDIATE TASK:
 ${basePrompt}
 
 🤖 AGENT ROLE & SPECIALIZATION:
-${this.getAgentRoleDescription(agent1.type)}
+${this.getAgentRoleDescription(agent.type)}
 
 🎯 AGENT CAPABILITIES:
-${agent1.config?.capabilities?.join(', ') || 'general automation'}
+${agent.config?.capabilities?.join(', ') || 'general automation'}
 
 🔬 MLE-STAR METHODOLOGY FOCUS:
-${this.getMethodologyGuidance(agent1.type)}
+${this.getMethodologyGuidance(agent.type)}
 
 🔧 COORDINATION REQUIREMENTS:
 1. **HOOKS INTEGRATION** (CRITICAL):
@@ -333,20 +349,20 @@ ${this.getMethodologyGuidance(agent1.type)}
    - WHEN complete: \`npx claude-flow@alpha hooks post-task --task-id "${task.id}"\`
 
 2. **MEMORY STORAGE** (CRITICAL):
-   - Store findings: \`npx claude-flow@alpha memory store "agent/${agent1.id}/findings" "[your_findings]"\`
-   - Store results: \`npx claude-flow@alpha memory store "agent/${agent1.id}/results" "[your_results]"\`
+   - Store findings: \`npx claude-flow@alpha memory store "agent/${agent.id}/findings" "[your_findings]"\`
+   - Store results: \`npx claude-flow@alpha memory store "agent/${agent.id}/results" "[your_results]"\`
    - Check other agents: \`npx claude-flow@alpha memory search "agent/*"\`
 
 3. **SESSION COORDINATION**:
    - Session ID: ${this.sessionId}
    - Execution ID: ${this.executionId}
    - Task ID: ${task.id}
-   - Agent ID: ${agent1.id}
+   - Agent ID: ${agent.id}
 
 4. **WORKFLOW PIPELINE AWARENESS**:
-   - Your position: ${this.getAgentPositionInPipeline(agent1.type)}
-   - Coordinate with: ${this.getCoordinationPartners(agent1.type)}
-   - File naming: Use \`${agent1.id}_[component].[ext]\` convention
+   - Your position: ${this.getAgentPositionInPipeline(agent.type)}
+   - Coordinate with: ${this.getCoordinationPartners(agent.type)}
+   - File naming: Use \`${agent.id}_[component].[ext]\` convention
 
 5. **OUTPUT REQUIREMENTS**:
    - Use detailed progress reporting
@@ -371,26 +387,26 @@ ${this.getMethodologyGuidance(agent1.type)}
 
 Begin execution now with the hooks pre-task command.`;
         } else {
-            return this.createAgentPrompt(agent1);
+            return this.createAgentPrompt(agent);
         }
     }
-    createAgentPrompt(agent1) {
-        const { config } = agent1;
+    createAgentPrompt(agent) {
+        const { config } = agent;
         const capabilities = config?.capabilities?.join(', ') || 'general automation';
-        return `You are the ${agent1.name} in a coordinated MLE-STAR automation workflow.
+        return `You are the ${agent.name} in a coordinated MLE-STAR automation workflow.
 
-🎯 AGENT ROLE: ${agent1.type.toUpperCase()}
+🎯 AGENT ROLE: ${agent.type.toUpperCase()}
 📋 CAPABILITIES: ${capabilities}
-🆔 AGENT ID: ${agent1.id}
+🆔 AGENT ID: ${agent.id}
 
 CRITICAL COORDINATION REQUIREMENTS:
 1. HOOKS: Use claude-flow hooks for coordination:
    - Run "npx claude-flow@alpha hooks pre-task --description '[your task]'" before starting
    - Run "npx claude-flow@alpha hooks post-edit --file '[file]'" after each file operation  
-   - Run "npx claude-flow@alpha hooks post-task --task-id '${agent1.id}'" when complete
+   - Run "npx claude-flow@alpha hooks post-task --task-id '${agent.id}'" when complete
 
 2. MEMORY: Store all findings and results:
-   - Use "npx claude-flow@alpha memory store 'agent/${agent1.id}/[key]' '[value]'" for important data
+   - Use "npx claude-flow@alpha memory store 'agent/${agent.id}/[key]' '[value]'" for important data
    - Check "npx claude-flow@alpha memory search 'agent/*'" for coordination with other agents
 
 3. SESSION: Maintain session coordination:
@@ -401,12 +417,12 @@ AGENT-SPECIFIC CONFIGURATION:
 ${JSON.stringify(config, null, 2)}
 
 MLE-STAR METHODOLOGY FOCUS:
-${this.getMethodologyGuidance(agent1.type)}
+${this.getMethodologyGuidance(agent.type)}
 
 WORKFLOW COORDINATION:
 - Work with other agents in the pipeline: Search → Foundation → Refinement → Ensemble → Validation
 - Share findings through memory system
-- Use proper file naming conventions: ${agent1.id}_[component].[ext]
+- Use proper file naming conventions: ${agent.id}_[component].[ext]
 - Follow MLE-STAR best practices for your role
 
 Execute your role in the MLE-STAR workflow with full coordination and hook integration.`;
@@ -426,20 +442,20 @@ You are the MASTER COORDINATOR for a comprehensive MLE-STAR (Machine Learning En
 🔄 SESSION ID: ${this.sessionId}
 
 🤖 SUB-AGENTS TO COORDINATE (${agents.length} total):
-${agents.map((agent1, index)=>`
-${index + 1}. ${agent1.name} (${agent1.type})
-   🎯 Role: ${this.getAgentRoleDescription(agent1.type)}
-   📋 Capabilities: ${agent1.config?.capabilities?.join(', ') || 'general automation'}
-   🆔 ID: ${agent1.id}`).join('')}
+${agents.map((agent, index)=>`
+${index + 1}. ${agent.name} (${agent.type})
+   🎯 Role: ${this.getAgentRoleDescription(agent.type)}
+   📋 Capabilities: ${agent.config?.capabilities?.join(', ') || 'general automation'}
+   🆔 ID: ${agent.id}`).join('')}
 
 🔧 CRITICAL: USE CONCURRENT STREAMS FOR PARALLEL EXECUTION
 
 You MUST coordinate these agents using Claude's concurrent execution capabilities:
 
-1. **USE TASK TOOL FOR CONCURRENT AGENTS**: 
+1. **USE TASK TOOL FOR CONCURRENT AGENTS**:
    For each sub-agent, use the Task tool to spawn them with detailed prompts:
-   
-   Task("You are ${agent.name}. ${detailed_role_prompt}", "${agent.id}", "agent-${agent.type}")
+
+   Task("You are \${agent.name}. \${detailed_role_prompt}", "\${agent.id}", "agent-\${agent.type}")
 
 2. **PARALLEL EXECUTION PATTERN**:
    Execute multiple agents simultaneously using the Task tool in a single response:
@@ -861,11 +877,11 @@ COORDINATION KEY POINTS:
                 }
                 const claudeInstance = this.claudeInstances.get(task.assignTo);
                 if (!claudeInstance) {
-                    const agent1 = workflow.agents.find((a)=>a.id === task.assignTo);
-                    if (!agent1) {
+                    const agent = workflow.agents.find((a)=>a.id === task.assignTo);
+                    if (!agent) {
                         throw new Error(`No agent definition found for: ${task.assignTo}`);
                     }
-                    const taskPrompt = this.createTaskPrompt(task, agent1, workflow);
+                    const taskPrompt = this.createTaskPrompt(task, agent, workflow);
                     let chainOptions = {};
                     if (this.enableChaining && this.options.outputFormat === 'stream-json' && task.depends?.length > 0) {
                         const lastDependency = task.depends[task.depends.length - 1];
@@ -875,13 +891,13 @@ COORDINATION KEY POINTS:
                             chainOptions.inputStream = dependencyStream;
                         }
                     }
-                    const taskClaudeProcess = await this.spawnClaudeInstance(agent1, taskPrompt, chainOptions);
+                    const taskClaudeProcess = await this.spawnClaudeInstance(agent, taskPrompt, chainOptions);
                     if (this.enableChaining && this.options.outputFormat === 'stream-json' && taskClaudeProcess.stdout) {
                         this.taskOutputStreams.set(task.id, taskClaudeProcess.stdout);
                     }
-                    this.claudeInstances.set(agent1.id, {
+                    this.claudeInstances.set(agent.id, {
                         process: taskClaudeProcess,
-                        agent: agent1,
+                        agent: agent,
                         status: 'active',
                         startTime: Date.now(),
                         taskId: task.id
@@ -939,8 +955,8 @@ COORDINATION KEY POINTS:
                         throw error;
                     }
                 } else {
-                    const agent1 = claudeInstance.agent;
-                    const taskPrompt = this.createTaskPrompt(task, agent1, workflow);
+                    const agent = claudeInstance.agent;
+                    const taskPrompt = this.createTaskPrompt(task, agent, workflow);
                     let chainOptions = {};
                     if (this.enableChaining && this.options.outputFormat === 'stream-json' && task.depends?.length > 0) {
                         const lastDependency = task.depends[task.depends.length - 1];
@@ -950,7 +966,7 @@ COORDINATION KEY POINTS:
                             chainOptions.inputStream = dependencyStream;
                         }
                     }
-                    const taskClaudeProcess = await this.spawnClaudeInstance(agent1, taskPrompt, chainOptions);
+                    const taskClaudeProcess = await this.spawnClaudeInstance(agent, taskPrompt, chainOptions);
                     if (this.enableChaining && this.options.outputFormat === 'stream-json' && taskClaudeProcess.stdout) {
                         this.taskOutputStreams.set(task.id, taskClaudeProcess.stdout);
                     }
@@ -1097,15 +1113,68 @@ COORDINATION KEY POINTS:
         }
     }
     applyVariables(workflow, variables) {
+        const preprocessedVariables = {
+            ...workflow.variables
+        };
+        for (const [key, value] of Object.entries(preprocessedVariables)){
+            if (typeof value === 'string' && value.includes('${')) {
+                const normalizedKey = key.toLowerCase();
+                const upperKey = key.toUpperCase();
+                if (variables[key]) {
+                    preprocessedVariables[key] = variables[key];
+                } else if (variables[normalizedKey]) {
+                    preprocessedVariables[key] = variables[normalizedKey];
+                } else if (variables[upperKey]) {
+                    preprocessedVariables[key] = variables[upperKey];
+                }
+            }
+        }
         const allVariables = {
-            ...workflow.variables,
+            ...preprocessedVariables,
             ...variables
         };
-        const workflowStr = JSON.stringify(workflow);
+        const workflowCopy = JSON.parse(JSON.stringify(workflow));
+        workflowCopy.variables = preprocessedVariables;
+        const workflowStr = JSON.stringify(workflowCopy);
+        if (this.options.logLevel === 'debug') {
+            console.log('\n🔍 Variable Substitution Debug:');
+            console.log('Original workflow.variables:', JSON.stringify(workflow.variables, null, 2));
+            console.log('Preprocessed variables:', JSON.stringify(preprocessedVariables, null, 2));
+            console.log('Passed variables:', JSON.stringify(variables, null, 2));
+            console.log('Merged allVariables:', JSON.stringify(allVariables, null, 2));
+        }
         let processedStr = workflowStr;
         for (const [key, value] of Object.entries(allVariables)){
-            const pattern = new RegExp(`\\$\\{${key}\\}`, 'g');
-            processedStr = processedStr.replace(pattern, value);
+            if (typeof value === 'string') {
+                const patterns = [
+                    new RegExp(`\\$\\{${key}\\}`, 'g'),
+                    new RegExp(`\\$\\{${key.toUpperCase()}\\}`, 'g')
+                ];
+                for (const pattern of patterns){
+                    const matches = processedStr.match(pattern);
+                    if (matches) {
+                        if (this.options.logLevel === 'debug') {
+                            console.log(`   Replacing ${matches.length} occurrences of ${pattern.source.replace(/\\\\/g, '')} with: ${value.substring(0, 100)}${value.length > 100 ? '...' : ''}`);
+                        }
+                        processedStr = processedStr.replace(pattern, value);
+                    }
+                }
+            } else {
+                const quotedPatterns = [
+                    new RegExp(`"\\$\\{${key}\\}"`, 'g'),
+                    new RegExp(`"\\$\\{${key.toUpperCase()}\\}"`, 'g')
+                ];
+                const jsonValue = JSON.stringify(value);
+                for (const pattern of quotedPatterns){
+                    const matches = processedStr.match(pattern);
+                    if (matches) {
+                        if (this.options.logLevel === 'debug') {
+                            console.log(`   Replacing ${matches.length} occurrences of ${pattern.source.replace(/\\\\/g, '')} with: ${jsonValue.substring(0, 100)}${jsonValue.length > 100 ? '...' : ''}`);
+                        }
+                        processedStr = processedStr.replace(pattern, jsonValue);
+                    }
+                }
+            }
         }
         return JSON.parse(processedStr);
     }

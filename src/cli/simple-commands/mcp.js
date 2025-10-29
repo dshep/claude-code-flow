@@ -1,44 +1,16 @@
 // mcp.js - MCP server management commands
 import { printSuccess, printError, printWarning } from '../utils.js';
 
-// Track if server is running in stdio mode (module-level state)
+// Module-level state to track stdio mode
 let isStdioMode = false;
 
-// Helper function to log to correct stream based on stdio mode
-const log = (...args) => {
-  if (isStdioMode) {
-    console.error(...args);
-  } else {
-    console.log(...args);
-  }
-};
-
-// Stdio-aware wrapper for printSuccess
-const success = (message) => {
-  if (isStdioMode) {
-    console.error(`✅ ${message}`);
-  } else {
-    printSuccess(message);
-  }
-};
-
-// Stdio-aware wrapper for printError
-const error = (message) => {
-  if (isStdioMode) {
-    console.error(`❌ ${message}`);
-  } else {
-    printError(message);
-  }
-};
-
-// Stdio-aware wrapper for printWarning
-const warning = (message) => {
-  if (isStdioMode) {
-    console.error(`⚠️  ${message}`);
-  } else {
-    printWarning(message);
-  }
-};
+// Smart logging helpers that respect stdio mode
+// In stdio mode: route to stderr to keep stdout clean for JSON-RPC
+// In HTTP mode: route to stdout for normal behavior
+const log = (...args) => (isStdioMode ? console.error(...args) : console.log(...args));
+const success = (msg) => (isStdioMode ? console.error(`✅ ${msg}`) : printSuccess(msg));
+const error = (msg) => (isStdioMode ? console.error(`❌ ${msg}`) : printError(msg));
+const warning = (msg) => (isStdioMode ? console.error(`⚠️  ${msg}`) : printWarning(msg));
 
 export async function mcpCommand(subArgs, flags) {
   const mcpCmd = subArgs[0];
@@ -87,12 +59,14 @@ async function startMcpServer(subArgs, flags) {
   const daemon = subArgs.includes('--daemon') || flags.daemon;
   const stdio = subArgs.includes('--stdio') || flags.stdio || true; // Default to stdio mode
 
-  // Set module-level flag for stdio mode
+  // Set module-level stdio flag for all helper functions
   isStdioMode = stdio;
 
   if (stdio) {
-    // Start MCP server in stdio mode (like ruv-swarm)
-    // The actual MCP server will handle all logging to stderr
+    // In stdio mode, don't output ANY messages before spawning the server
+    // The MCP server will handle all output (stderr for logs, stdout for JSON-RPC)
+    // Any output here would corrupt the JSON-RPC protocol stream
+
     // Import and start the MCP server
     try {
       const { fileURLToPath } = await import('url');
@@ -109,9 +83,9 @@ async function startMcpServer(subArgs, flags) {
       // Check if the file exists, and log the path for debugging
       const fs = await import('fs');
       if (!fs.existsSync(mcpServerPath)) {
-        console.error(`MCP server file not found at: ${mcpServerPath}`);
-        console.error(`Current directory: ${process.cwd()}`);
-        console.error(`Script directory: ${__dirname}`);
+        error(`MCP server file not found at: ${mcpServerPath}`);
+        error(`Current directory: ${process.cwd()}`);
+        error(`Script directory: ${__dirname}`);
         throw new Error(`MCP server file not found: ${mcpServerPath}`);
       }
 
@@ -422,9 +396,7 @@ function showMcpHelp() {
   log('  --enable-wasm                    Enable WASM SIMD optimization');
   log();
   log('TOOLS OPTIONS:');
-  log(
-    '  --category <cat>                 Filter by category (swarm, neural, memory, etc.)',
-  );
+  log('  --category <cat>                 Filter by category (swarm, neural, memory, etc.)');
   log('  --verbose, -v                    Show detailed tool information');
   log('  --examples                       Show usage examples');
   log();

@@ -1,0 +1,221 @@
+# ReasoningBank Embedding Configuration
+
+Custom embedding provider with support for any OpenAI-compatible API including OpenAI, OpenRouter, Requesty.ai, Together.ai, and local models.
+
+## Environment Variables
+
+| Variable | Description | Default | Example |
+|----------|-------------|---------|---------|
+| **Endpoint Configuration** | | | |
+| `OPENAI_BASE_URL` | Custom OpenAI-compatible endpoint | `https://api.openai.com/v1` | `https://openrouter.ai/api/v1` |
+| **Authentication** | | | |
+| `OPENAI_API_KEY` | API key for embedding service | - | `sk-proj-...`, `sk-or-v1-...` |
+| **Model Configuration** | | | |
+| `EMBEDDING_MODEL` | Embedding model name | `text-embedding-3-small` | `text-embedding-3-large` |
+| `EMBEDDING_DIMENSIONS` | Embedding vector dimensions | `1536` | `3072`, `768` |
+| `EMBEDDING_PROVIDER_PREFIX` | Provider prefix for model name | Auto-detected | `openai/`, `custom/` |
+| **Behavior** | | | |
+| `EMBEDDING_STRICT_MODE` | Fail instead of fallback to hash | `true` (fails by default) | `false` (to enable fallback) |
+
+## Supported Dimensions
+
+Common embedding dimensions by model:
+- `384` - Small models (BERT, etc.)
+- `768` - Base transformer models
+- `1024` - Legacy OpenAI models
+- `1536` - OpenAI text-embedding-3-small (default)
+- `3072` - OpenAI text-embedding-3-large
+
+## API Providers
+
+### OpenAI (Default - Zero Config)
+```bash
+# Just set the API key - uses OpenAI endpoint automatically
+export OPENAI_API_KEY=sk-proj-...
+# Automatically uses: https://api.openai.com/v1/embeddings
+```
+
+### OpenRouter
+```bash
+export OPENAI_BASE_URL=https://openrouter.ai/api/v1
+export OPENAI_API_KEY=sk-or-v1-...
+export EMBEDDING_MODEL=text-embedding-3-small
+export EMBEDDING_PROVIDER_PREFIX=openai/  # If needed
+```
+
+### Requesty.ai
+```bash
+export OPENAI_BASE_URL=https://router.requesty.ai/v1
+export OPENAI_API_KEY=your-key
+export EMBEDDING_PROVIDER_PREFIX=openai/  # Auto-detected
+```
+
+### Together.ai
+```bash
+export OPENAI_BASE_URL=https://api.together.xyz/v1
+export OPENAI_API_KEY=...
+export EMBEDDING_MODEL=togethercomputer/m2-bert-80M-8k-retrieval
+export EMBEDDING_DIMENSIONS=768
+```
+
+### Local Ollama
+```bash
+export OPENAI_BASE_URL=http://localhost:11434/v1
+export OPENAI_API_KEY=none  # Ollama doesn't require auth
+export EMBEDDING_MODEL=nomic-embed-text
+export EMBEDDING_DIMENSIONS=768
+```
+
+## Configuration File
+
+Alternatively, configure via `.swarm/reasoningbank.yaml`:
+
+```yaml
+reasoningbank:
+  embeddings:
+    provider: openai  # Use OpenAI-compatible API
+    model: text-embedding-3-small
+    dimensions: 1536
+    cache_ttl_seconds: 3600
+```
+
+## Usage
+
+### Store with Semantic Search
+```bash
+# With OpenAI (default - zero config):
+export OPENAI_API_KEY=sk-proj-...
+
+# Or with custom provider (e.g., OpenRouter):
+export OPENAI_BASE_URL=https://openrouter.ai/api/v1
+export OPENAI_API_KEY=sk-or-v1-...
+
+# Store memories (embeddings generated automatically)
+npx claude-flow memory store "ai/concepts" "Machine learning with neural networks"
+npx claude-flow memory store "recipes/dessert" "Chocolate cake with vanilla frosting"
+
+# Semantic search finds similar content
+npx claude-flow memory query "deep learning" --namespace default
+# Returns: ai/concepts (high score)
+
+npx claude-flow memory query "baking" --namespace default
+# Returns: recipes/dessert (high score)
+```
+
+### Check Embedding Stats
+```javascript
+import { getEmbeddingStats } from './custom-embeddings.js';
+
+const stats = getEmbeddingStats();
+console.log(stats);
+// {
+//   apiCalls: 10,
+//   cacheHits: 5,
+//   fallbacks: 0,
+//   errors: 0,
+//   cacheSize: 15,
+//   hitRate: '33.33%'
+// }
+```
+
+## Dimension Mismatch Warning
+
+If you change `EMBEDDING_DIMENSIONS` after storing embeddings, you'll see:
+
+```
+[WARN] ⚠️  Embedding dimension mismatch!
+[WARN]   Database has: 1024 dimensions
+[WARN]   Configured:   1536 dimensions
+[WARN] This will cause search failures. Options:
+[WARN]   1. Set EMBEDDING_DIMENSIONS=1024 to match database
+[WARN]   2. Delete .swarm/memory.db to start fresh
+[WARN]   3. Run migration to re-embed all entries
+```
+
+## Strict Mode (Default Behavior)
+
+**Default**: Strict mode is **enabled by default** - API failures throw errors instead of falling back to hash embeddings.
+
+```bash
+# Default behavior (strict mode ON):
+npx claude-flow memory store "test" "value"
+# Error: Embedding request failed: API error 402: Insufficient balance
+
+# Disable strict mode to allow fallback to hash embeddings:
+export EMBEDDING_STRICT_MODE=false
+
+npx claude-flow memory store "test" "value"
+# [WARN] Falling back to hash embeddings
+# ✅ Stored successfully (using hash-based embeddings)
+```
+
+**Rationale**: Failing fast ensures you know when semantic search isn't working properly, rather than silently using inferior hash-based embeddings.
+
+## Features
+
+- ✅ **Configurable endpoints** - Use any OpenAI-compatible API
+- ✅ **Auto-detection** - Provider-specific model formatting (Requesty.ai, OpenRouter, etc.)
+- ✅ **LRU caching** - 1-hour TTL, max 100 entries
+- ✅ **Graceful fallback** - Hash-based embeddings if API fails
+- ✅ **Metrics tracking** - API calls, cache hits, errors
+- ✅ **Dimension validation** - Warns about mismatches
+- ✅ **Strict mode** - Optional fail-fast behavior
+
+## Troubleshooting
+
+### API Error 402: Insufficient Balance
+Add credits to your provider account (OpenRouter, Requesty.ai, etc.)
+
+### Dimension Mismatch Errors
+Delete `.swarm/memory.db` or set `EMBEDDING_DIMENSIONS` to match existing database.
+
+### Falling Back to Hash Embeddings
+Check that API key is set and endpoint is reachable:
+```bash
+# Test your endpoint
+curl -H "Authorization: Bearer $OPENAI_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"text-embedding-3-small","input":"test"}' \
+  ${OPENAI_BASE_URL:-https://api.openai.com/v1}/embeddings
+```
+
+## Future: AgentDB Integration (Phase 2)
+
+### Performance Gains
+AgentDB will provide 150x-12,500x faster vector search using HNSW indexing:
+
+| Database Size | SQLite (Current) | AgentDB (Planned) | Speedup |
+|---------------|------------------|-------------------|---------|
+| 100 vectors | 50ms | 0.3ms | 166x |
+| 10,000 vectors | 500ms | 0.4ms | 1,250x |
+| 1,000,000 vectors | 50s | 4ms | 12,500x |
+
+### Additional Features
+- 🧠 **Learning Plugins**: Decision Transformer, Q-Learning, SARSA, Actor-Critic
+- 🤖 **Reasoning Agents**: Pattern Matching, Context Synthesis, Memory Optimization
+- 🗜️ **Quantization**: 4x-32x memory reduction
+- 🔄 **QUIC Sync**: Multi-agent coordination
+
+### How It Works
+
+AgentDB integration will maintain our custom embedding flexibility:
+
+```javascript
+// We compute embeddings (any provider)
+const embedding = await computeCustomEmbedding(text, {
+  baseUrl: process.env.OPENAI_BASE_URL,
+  model: process.env.EMBEDDING_MODEL
+});
+
+// AgentDB handles storage/search (HNSW, learning, reasoning)
+await agentDB.insertPattern({
+  pattern_data: JSON.stringify({
+    embedding: Array.from(embedding),  // Pre-computed
+    pattern: { ... }
+  })
+});
+```
+
+**Best of both worlds**: Flexible embedding generation + blazing fast storage/retrieval!
+
+See issue #25 for implementation roadmap.

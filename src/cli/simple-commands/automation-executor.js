@@ -100,7 +100,33 @@ export class WorkflowExecutor {
       
       // Apply variable substitutions
       const processedWorkflow = this.applyVariables(workflowData, variables);
-      
+
+      // Display applied variables with full context
+      if (Object.keys(variables).length > 0 && this.options.logLevel !== 'quiet') {
+        console.log(`📝 Applied Variables:`);
+        for (const [key, value] of Object.entries(variables)) {
+          const displayValue = typeof value === 'string' && value.length > 80
+            ? value.substring(0, 80) + '...'
+            : JSON.stringify(value);
+          console.log(`   ${key}: ${displayValue}`);
+        }
+        console.log();
+      }
+
+      // Display final workflow variables (after preprocessing and merging)
+      if (processedWorkflow.variables && Object.keys(processedWorkflow.variables).length > 0 && this.options.logLevel !== 'quiet') {
+        console.log(`🎯 Workflow Variables (final):`);
+        for (const [key, value] of Object.entries(processedWorkflow.variables)) {
+          const displayValue = typeof value === 'string' && value.length > 80
+            ? value.substring(0, 80) + '...'
+            : typeof value === 'object'
+            ? JSON.stringify(value)
+            : value;
+          console.log(`   ${key}: ${displayValue}`);
+        }
+        console.log();
+      }
+
       // Initialize agents if Claude integration is enabled
       if (this.options.enableClaude) {
         await this.initializeClaudeAgents(processedWorkflow.agents);
@@ -577,10 +603,10 @@ ${index + 1}. ${agent.name} (${agent.type})
 
 You MUST coordinate these agents using Claude's concurrent execution capabilities:
 
-1. **USE TASK TOOL FOR CONCURRENT AGENTS**: 
+1. **USE TASK TOOL FOR CONCURRENT AGENTS**:
    For each sub-agent, use the Task tool to spawn them with detailed prompts:
-   
-   Task("You are ${agent.name}. ${detailed_role_prompt}", "${agent.id}", "agent-${agent.type}")
+
+   Task("You are \${agent.name}. \${detailed_role_prompt}", "\${agent.id}", "agent-\${agent.type}")
 
 2. **PARALLEL EXECUTION PATTERN**:
    Execute multiple agents simultaneously using the Task tool in a single response:
@@ -1451,16 +1477,84 @@ COORDINATION KEY POINTS:
    * Apply variable substitutions to workflow
    */
   applyVariables(workflow, variables) {
-    const allVariables = { ...workflow.variables, ...variables };
-    const workflowStr = JSON.stringify(workflow);
-    
+    // STEP 1: PREPROCESS - Resolve placeholders in the variables section first
+    const preprocessedVariables = { ...workflow.variables };
+    for (const [key, value] of Object.entries(preprocessedVariables)) {
+      if (typeof value === 'string' && value.includes('${')) {
+        // This is a placeholder like "${RESEARCH_TOPIC}"
+        // Try to resolve it from passed variables (matching both cases)
+        const normalizedKey = key.toLowerCase();
+        const upperKey = key.toUpperCase();
+
+        if (variables[key]) {
+          preprocessedVariables[key] = variables[key];
+        } else if (variables[normalizedKey]) {
+          preprocessedVariables[key] = variables[normalizedKey];
+        } else if (variables[upperKey]) {
+          preprocessedVariables[key] = variables[upperKey];
+        }
+        // If no match, leave the placeholder (will be replaced later if variable is passed)
+      }
+    }
+
+    // STEP 2: Merge preprocessed workflow variables with user variables
+    const allVariables = { ...preprocessedVariables, ...variables };
+
+    // STEP 3: Update workflow with preprocessed variables before stringifying
+    const workflowCopy = JSON.parse(JSON.stringify(workflow)); // Deep copy
+    workflowCopy.variables = preprocessedVariables;
+    const workflowStr = JSON.stringify(workflowCopy);
+
+    // Debug logging
+    if (this.options.logLevel === 'debug') {
+      console.log('\n🔍 Variable Substitution Debug:');
+      console.log('Original workflow.variables:', JSON.stringify(workflow.variables, null, 2));
+      console.log('Preprocessed variables:', JSON.stringify(preprocessedVariables, null, 2));
+      console.log('Passed variables:', JSON.stringify(variables, null, 2));
+      console.log('Merged allVariables:', JSON.stringify(allVariables, null, 2));
+    }
+
     // Simple variable substitution
     let processedStr = workflowStr;
     for (const [key, value] of Object.entries(allVariables)) {
-      const pattern = new RegExp(`\\$\\{${key}\\}`, 'g');
-      processedStr = processedStr.replace(pattern, value);
+      if (typeof value === 'string') {
+        // For string values, replace ${key} with the string value
+        // Also handle uppercase version (e.g., research_topic -> RESEARCH_TOPIC)
+        const patterns = [
+          new RegExp(`\\$\\{${key}\\}`, 'g'),
+          new RegExp(`\\$\\{${key.toUpperCase()}\\}`, 'g')
+        ];
+
+        for (const pattern of patterns) {
+          const matches = processedStr.match(pattern);
+          if (matches) {
+            if (this.options.logLevel === 'debug') {
+              console.log(`   Replacing ${matches.length} occurrences of ${pattern.source.replace(/\\\\/g, '')} with: ${value.substring(0, 100)}${value.length > 100 ? '...' : ''}`);
+            }
+            processedStr = processedStr.replace(pattern, value);
+          }
+        }
+      } else {
+        // For arrays/objects, replace "${key}" (including quotes) with the JSON representation
+        // Also handle uppercase version
+        const quotedPatterns = [
+          new RegExp(`"\\$\\{${key}\\}"`, 'g'),
+          new RegExp(`"\\$\\{${key.toUpperCase()}\\}"`, 'g')
+        ];
+        const jsonValue = JSON.stringify(value);
+
+        for (const pattern of quotedPatterns) {
+          const matches = processedStr.match(pattern);
+          if (matches) {
+            if (this.options.logLevel === 'debug') {
+              console.log(`   Replacing ${matches.length} occurrences of ${pattern.source.replace(/\\\\/g, '')} with: ${jsonValue.substring(0, 100)}${jsonValue.length > 100 ? '...' : ''}`);
+            }
+            processedStr = processedStr.replace(pattern, jsonValue);
+          }
+        }
+      }
     }
-    
+
     return JSON.parse(processedStr);
   }
 

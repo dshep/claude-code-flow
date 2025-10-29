@@ -30,15 +30,6 @@ if (args.length === 0) {
 for (const arg of args) {
   if (arg === '--version' || arg === '-v') {
     console.log(`v${VERSION}`);
-    console.log('');
-    console.log('⚡ Alpha 128 - Build Optimization & Memory Coordination');
-    console.log('  • Build System Fixed - Removed 32 UI files, clean compilation');
-    console.log('  • Memory Coordination Validated - MCP tools fully operational');
-    console.log('  • Agent Updates - All core agents with MCP tool integration');
-    console.log('  • Hive-Mind Agents - 5 new agents with memory coordination');
-    console.log('  • Command System - All CLI commands tested and working');
-    console.log('');
-    console.log('📚 Docs: https://github.com/ruvnet/claude-flow');
     process.exit(0);
   }
 }
@@ -46,9 +37,15 @@ for (const arg of args) {
 // Try to find the best runtime and execute
 async function main() {
   try {
-    // Try JavaScript version first (most reliable)
-    const jsFile = join(ROOT_DIR, 'src', 'cli', 'simple-cli.js');
-    if (existsSync(jsFile)) {
+    // Try built CommonJS version first (most reliable for production)
+    // Falls back to source TypeScript if built files not available
+    const cjsFile = join(ROOT_DIR, 'dist-cjs', 'src', 'cli', 'simple-cli.js');
+    const srcFile = join(ROOT_DIR, 'src', 'cli', 'simple-cli.js');
+
+    // Prefer dist-cjs if available (production), otherwise use src (development)
+    const jsFile = existsSync(cjsFile) ? cjsFile : (existsSync(srcFile) ? srcFile : null);
+
+    if (jsFile) {
       const child = spawn('node', [jsFile, ...args], {
         stdio: 'inherit',
         shell: false,

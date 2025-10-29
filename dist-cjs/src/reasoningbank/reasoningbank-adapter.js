@@ -1,5 +1,6 @@
 import * as ReasoningBank from 'agentic-flow/reasoningbank';
 import { v4 as uuidv4 } from 'uuid';
+import { computeCustomEmbedding } from './custom-embeddings.js';
 let backendInitialized = false;
 let initPromise = null;
 const queryCache = new Map();
@@ -17,6 +18,23 @@ async function ensureInitialized() {
             await ReasoningBank.initialize();
             backendInitialized = true;
             console.log('[ReasoningBank] Node.js backend initialized successfully');
+            if (process.env.OPENAI_BASE_URL) {
+                console.log(`[ReasoningBank] Using custom endpoint: ${process.env.OPENAI_BASE_URL}`);
+            }
+            try {
+                const db = ReasoningBank.db.getDatabase();
+                const existingDims = db.prepare('SELECT DISTINCT dims FROM pattern_embeddings LIMIT 1').get();
+                const configuredDims = parseInt(process.env.EMBEDDING_DIMENSIONS || '1536');
+                if (existingDims && existingDims.dims !== configuredDims) {
+                    console.warn(`[WARN] ⚠️  Embedding dimension mismatch!`);
+                    console.warn(`[WARN]   Database has: ${existingDims.dims} dimensions`);
+                    console.warn(`[WARN]   Configured:   ${configuredDims} dimensions`);
+                    console.warn(`[WARN] This will cause search failures. Options:`);
+                    console.warn(`[WARN]   1. Set EMBEDDING_DIMENSIONS=${existingDims.dims} to match database`);
+                    console.warn(`[WARN]   2. Delete .swarm/memory.db to start fresh`);
+                    console.warn(`[WARN]   3. Run migration to re-embed all entries`);
+                }
+            } catch (err) {}
             return true;
         } catch (error) {
             console.error('[ReasoningBank] Backend initialization failed:', error);
@@ -50,16 +68,27 @@ export async function storeMemory(key, value, options = {}) {
             usage_count: 0
         };
         ReasoningBank.db.upsertMemory(memory);
+        const embeddingConfig = {
+            apiKey: process.env.OPENAI_API_KEY,
+            baseUrl: process.env.OPENAI_BASE_URL,
+            model: process.env.EMBEDDING_MODEL || 'text-embedding-3-small',
+            dimensions: parseInt(process.env.EMBEDDING_DIMENSIONS || '1536')
+        };
         try {
-            const embedding = await ReasoningBank.computeEmbedding(value);
+            const embedding = await computeCustomEmbedding(value, embeddingConfig);
             ReasoningBank.db.upsertEmbedding({
                 id: memoryId,
-                model: 'text-embedding-3-small',
+                model: embeddingConfig.model,
                 dims: embedding.length,
                 vector: embedding
             });
         } catch (embeddingError) {
+            const strictMode = embeddingConfig.strictMode !== undefined ? embeddingConfig.strictMode : process.env.EMBEDDING_STRICT_MODE !== 'false';
+            if (strictMode) {
+                throw new Error(`Failed to generate embedding: ${embeddingError.message}`);
+            }
             console.warn('[ReasoningBank] Failed to generate embedding:', embeddingError.message);
+            console.warn('[ReasoningBank] Continuing without embedding (set EMBEDDING_STRICT_MODE=false to allow fallback)');
         }
         queryCache.clear();
         return memoryId;
@@ -67,6 +96,58 @@ export async function storeMemory(key, value, options = {}) {
         console.error('[ReasoningBank] storeMemory failed:', error);
         throw new Error(`Failed to store memory: ${error.message}`);
     }
+}
+async function customRetrieveMemories(query, options = {}) {
+    const config = ReasoningBank.loadConfig();
+    const k = options.k || config.retrieve.k;
+    const startTime = Date.now();
+    console.log(`[INFO] Retrieving memories for query: ${query.substring(0, 100)}...`);
+    const embeddingConfig = {
+        apiKey: process.env.OPENAI_API_KEY,
+        baseUrl: process.env.OPENAI_BASE_URL,
+        model: process.env.EMBEDDING_MODEL || 'text-embedding-3-small',
+        dimensions: parseInt(process.env.EMBEDDING_DIMENSIONS || '1536')
+    };
+    const queryEmbed = await computeCustomEmbedding(query, embeddingConfig);
+    const candidates = ReasoningBank.db.fetchMemoryCandidates({
+        domain: options.domain,
+        agent: options.agent,
+        minConfidence: config.retrieve.min_score
+    });
+    if (candidates.length === 0) {
+        console.log('[INFO] No memory candidates found');
+        return [];
+    }
+    console.log(`[INFO] Found ${candidates.length} candidates`);
+    const scored = candidates.map((item)=>{
+        const similarity = ReasoningBank.cosineSimilarity(queryEmbed, item.embedding);
+        const recency = Math.exp(-item.age_days / config.retrieve.recency_half_life_days);
+        const reliability = Math.min(item.confidence, 1.0);
+        const baseScore = config.retrieve.alpha * similarity + config.retrieve.beta * recency + config.retrieve.gamma * reliability;
+        return {
+            ...item,
+            score: baseScore,
+            components: {
+                similarity,
+                recency,
+                reliability
+            }
+        };
+    });
+    const selected = ReasoningBank.mmrSelection(scored, queryEmbed, k, config.retrieve.delta);
+    for (const mem of selected){
+        ReasoningBank.db.incrementUsage(mem.id);
+    }
+    const duration = Date.now() - startTime;
+    console.log(`[INFO] Retrieval complete: ${selected.length} memories in ${duration}ms`);
+    return selected.map((item)=>({
+            id: item.id,
+            title: item.pattern_data.title,
+            description: item.pattern_data.description,
+            content: item.pattern_data.content,
+            score: item.score,
+            components: item.components
+        }));
 }
 export async function queryMemories(searchQuery, options = {}) {
     const cached = getCachedQuery(searchQuery, options);
@@ -77,7 +158,7 @@ export async function queryMemories(searchQuery, options = {}) {
     const limit = options.limit || 10;
     const namespace = options.namespace || options.domain || 'default';
     try {
-        const results = await ReasoningBank.retrieveMemories(searchQuery, {
+        const results = await customRetrieveMemories(searchQuery, {
             domain: namespace,
             agent: options.agent || 'query-agent',
             k: limit,

@@ -21,9 +21,10 @@ import { automationAction } from './simple-commands/automation.js';
 import { coordinationAction } from './simple-commands/coordination.js';
 import { hooksAction } from './simple-commands/hooks.js';
 import { hookSafetyCommand } from './simple-commands/hook-safety.js';
-import { hiveMindCommand } from './simple-commands/hive-mind.js';
+// Lazy load hive-mind commands to avoid loading inquirer in MCP server
+// import { hiveMindCommand } from './simple-commands/hive-mind.js';
 import { HelpFormatter } from './help-formatter.js';
-import hiveMindOptimizeCommand from './simple-commands/hive-mind-optimize.js';
+// import hiveMindOptimizeCommand from './simple-commands/hive-mind-optimize.js';
 import { neuralCommand } from './simple-commands/neural.js';
 import { goalCommand } from './simple-commands/goal.js';
 import {
@@ -314,7 +315,11 @@ Commands:
   });
 
   commandRegistry.set('hive-mind', {
-    handler: hiveMindCommand,
+    handler: async (...args) => {
+      // Lazy load to avoid loading inquirer in MCP server
+      const { hiveMindCommand } = await import('./simple-commands/hive-mind.js');
+      return hiveMindCommand(...args);
+    },
     description: '🧠 Advanced Hive Mind swarm intelligence with collective decision-making',
     usage: 'hive-mind <subcommand> [options]',
     examples: [
@@ -350,7 +355,11 @@ Use 'hive-mind wizard' for interactive setup or 'hive-mind help' for full docume
   });
 
   commandRegistry.set('hive-mind-optimize', {
-    handler: hiveMindOptimizeCommand,
+    handler: async (...args) => {
+      // Lazy load to avoid loading inquirer in MCP server
+      const module = await import('./simple-commands/hive-mind-optimize.js');
+      return module.default(...args);
+    },
     description: '🔧 Optimize hive mind database for better performance',
     usage: 'hive-mind-optimize [options]',
     examples: [
