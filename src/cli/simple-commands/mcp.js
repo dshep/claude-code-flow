@@ -101,22 +101,17 @@ async function startMcpServer(subArgs, flags) {
       });
 
       serverProcess.on('exit', (code) => {
+        // Silent exit - server handles its own logging
         if (code !== 0) {
-          error(`MCP server exited with code ${code}`);
+          process.exit(code);
         }
       });
 
       // Keep the process alive
       await new Promise(() => {}); // Never resolves, keeps server running
-    } catch (err) {
-      error('Failed to start MCP server: ' + err.message);
-
-      // Fallback to status display
-      log('🚀 MCP server would start with:');
-      log('   Protocol: stdio');
-      log('   Tools: 87 Claude-Flow integration tools');
-      log('   Orchestrator: ' + (autoOrchestrator ? 'AUTO-STARTED' : 'Manual'));
-      log('   Mode: ' + (daemon ? 'DAEMON' : 'Interactive'));
+    } catch (error) {
+      // Silent fail - the spawned server will handle error logging
+      process.exit(1);
     }
   } else {
     // HTTP mode (for future implementation)
