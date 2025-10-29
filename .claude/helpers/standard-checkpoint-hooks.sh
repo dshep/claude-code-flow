@@ -90,7 +90,9 @@ EOF
 
 # Function to handle task checkpoints
 task_checkpoint() {
-    local user_prompt="$1"
+    # Read user prompt from stdin via jq (matches other hook patterns)
+    local tool_input=$(cat)
+    local user_prompt=$(echo "$tool_input" | jq -r '.user_prompt // empty')
     local task=$(echo "$user_prompt" | head -c 100 | tr '\n' ' ')
     
     if [ -n "$task" ]; then
@@ -167,7 +169,7 @@ case "$1" in
         post_edit_checkpoint "$2"
         ;;
     task)
-        task_checkpoint "$2"
+        task_checkpoint
         ;;
     session-end)
         session_end_checkpoint
