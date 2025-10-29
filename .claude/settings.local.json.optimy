@@ -1,0 +1,76 @@
+{
+  "env": {
+    "AGENTDB_LEARNING_ENABLED": "true",
+    "AGENTDB_REASONING_ENABLED": "true",
+    "AGENTDB_AUTO_TRAIN": "true"
+  },
+  "permissions": {
+    "allow": [
+      "mcp__ruv-swarm",
+      "mcp__claude-flow@alpha",
+      "mcp__flow-nexus",
+      "Bash(npx agentdb:*)"
+    ],
+    "deny": []
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/bin/bash -c '_HOOK_FILE=$(cat | jq -r \".tool_input.file_path // .tool_input.path // empty\"); if [ -n \"$_HOOK_FILE\" ] && [ ${#_HOOK_FILE} -lt 50000 ]; then  echo \"\ud83d\udd0d Semantic Search: Querying similar successful edits for $_HOOK_FILE...\"; npx agentdb@latest query --domain \"successful-edits\" --query \"file:$_HOOK_FILE\" --k 5 --min-confidence 0.8 --format json 2>/dev/null || echo \"{}\" | jq -r \".memories[]? | \\\"\ud83d\udca1 Past Success: \\(.pattern.summary // \\\"No similar patterns found\\\")\\\" \" 2>/dev/null || true; npx claude-flow@alpha hooks pre-edit --file \"$_HOOK_FILE\" --auto-assign-agents true --load-context true 2>/dev/null || true; fi'"
+          },
+          {
+            "type": "command",
+            "command": "/bin/bash -c '_HOOK_FILE=$(cat | jq -r \".tool_input.file_path // .tool_input.path // empty\"); if [ -n \"$_HOOK_FILE\" ] && [ ${#_HOOK_FILE} -lt 50000 ]; then  echo \"\u26a0\ufe0f Failure Detection: Checking for known failure patterns...\"; npx agentdb@latest query --domain \"failed-edits\" --query \"file:$_HOOK_FILE\" --k 3 --min-confidence 0.7 --format json 2>/dev/null | jq -r \".memories[]? | \\\"\ud83d\udea8 Warning: Similar edit failed - \\(.pattern.reason // \\\"unknown\\\")\\\" \" 2>/dev/null || true; fi'"
+          }
+        ]
+      },
+      {
+        "matcher": "Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/bin/bash -c '_HOOK_TASK=$(cat | jq -r \".tool_input.prompt // .tool_input.task // empty\"); if [ -n \"$_HOOK_TASK\" ] && [ ${#_HOOK_TASK} -lt 50000 ]; then echo \"\ud83c\udfaf Trajectory Prediction: Analyzing optimal workflow for task...\"; npx agentdb@latest query --domain \"task-trajectories\" --query \"task:$_HOOK_TASK\" --k 3 --min-confidence 0.75 --format json 2>/dev/null | jq -r \".memories[]? | \\\"\ud83d\udccb Predicted Steps: \\(.pattern.trajectory // \\\"No trajectory data\\\") (Success Rate: \\(.confidence // 0))\\\" \" 2>/dev/null || echo \"\ud83d\udccb No historical trajectory data - learning from this task...\" 2>/dev/null || true; npx claude-flow@alpha hooks pre-task --description \"$_HOOK_TASK\" --auto-spawn-agents true --load-memory true 2>/dev/null || true; fi'"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/bin/bash -c '_HOOK_FILE=$(cat | jq -r \".tool_input.file_path // .tool_input.path // empty\"); if [ -n \"$_HOOK_FILE\" ] && [ ${#_HOOK_FILE} -lt 50000 ]; then  echo \"\ud83d\udcbe Experience Replay: Storing edit experience for $_HOOK_FILE...\"; TIMESTAMP=$(date +%s); npx agentdb@latest store-pattern --type \"experience\" --domain \"code-edits\" --pattern \"{\\\"file\\\":\\\"$_HOOK_FILE\\\",\\\"timestamp\\\":$TIMESTAMP,\\\"action\\\":\\\"edit\\\",\\\"state\\\":\\\"pre-test\\\"}\" --confidence 0.5 2>/dev/null || true; npx claude-flow@alpha hooks post-edit --file \"$_HOOK_FILE\" --format true --update-memory true --train-patterns true 2>/dev/null || true; fi'"
+          },
+          {
+            "type": "command",
+            "command": "/bin/bash -c '\n_HOOK_FILE=$(cat | jq -r \".tool_input.file_path // .tool_input.path // empty\")\nif [ -n \"$_HOOK_FILE\" ] && [ ${#_HOOK_FILE} -lt 50000 ]; then\n  # Skip test verdict ONLY for documentation and media files\n  case \"$_HOOK_FILE\" in\n    *.md|*.txt|*.rst|*.adoc)\n      echo \"\ud83d\udcdd Skipping test verdict for documentation file: $_HOOK_FILE\"\n      ;;\n    *.pdf|*.png|*.jpg|*.jpeg|*.gif|*.svg|*.ico|*.webp)\n      echo \"\ud83d\uddbc\ufe0f Skipping test verdict for media file: $_HOOK_FILE\"\n      ;;\n    *.lock|*.map|*.log)\n      echo \"\ud83d\udd12 Skipping test verdict for generated file: $_HOOK_FILE\"\n      ;;\n    *)\n      # Run tests for ALL other files (code, config, data)\n      (\n        sleep 2\n        TEST_RESULT=\"UNKNOWN\"\n        if npm test --silent 2>&1 | grep -q \"pass\"; then\n          TEST_RESULT=\"ACCEPT\"\n          REWARD=\"1.0\"\n          CONFIDENCE=\"0.95\"\n        else\n          TEST_RESULT=\"REJECT\"\n          REWARD=\"-1.0\"\n          CONFIDENCE=\"0.3\"\n        fi\n        \n        echo \"\u2696\ufe0f Verdict: $TEST_RESULT (reward: $REWARD) for $_HOOK_FILE\"\n        \n        # Store verdict in AgentDB\n        npx agentdb@latest store-pattern           --type \"verdict\"           --domain \"code-quality\"           --pattern \"{\\\"file\\\":\\\"$_HOOK_FILE\\\",\\\"verdict\\\":\\\"$TEST_RESULT\\\",\\\"reward\\\":$REWARD}\"           --confidence \"$CONFIDENCE\" 2>/dev/null || true\n        \n        # Store as success or failure pattern\n        if [ \"$TEST_RESULT\" = \"ACCEPT\" ]; then\n          npx agentdb@latest store-pattern             --type \"success\"             --domain \"successful-edits\"             --pattern \"{\\\"file\\\":\\\"$_HOOK_FILE\\\",\\\"summary\\\":\\\"Edit passed tests\\\"}\"             --confidence 0.9 2>/dev/null || true\n        else\n          npx agentdb@latest store-pattern             --type \"failure\"             --domain \"failed-edits\"             --pattern \"{\\\"file\\\":\\\"$_HOOK_FILE\\\",\\\"reason\\\":\\\"Tests failed\\\"}\"             --confidence 0.8 2>/dev/null || true\n        fi\n      ) &\n      ;;\n  esac\nfi\n'"
+          }
+        ]
+      },
+      {
+        "matcher": "Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/bin/bash -c '_HOOK_TASK=$(cat | jq -r \".tool_input.prompt // .tool_input.task // empty\"); SUCCESS=$(cat | jq -r \".result.success // \\\"unknown\\\"\"); if [ -n \"$_HOOK_TASK\" ] && [ ${#_HOOK_TASK} -lt 50000 ]; then echo \"\ud83d\udcca Trajectory Storage: Recording task workflow...\"; CONFIDENCE=$([ \"$SUCCESS\" = \"true\" ] && echo \"0.95\" || echo \"0.5\"); npx agentdb@latest store-pattern --type \"trajectory\" --domain \"task-trajectories\" --pattern \"{\\\"task\\\":\\\"$_HOOK_TASK\\\",\\\"success\\\":$SUCCESS,\\\"trajectory\\\":\\\"search\u2192scaffold\u2192test\u2192refine\\\"}\" --confidence \"$CONFIDENCE\" 2>/dev/null || true; npx claude-flow@alpha hooks post-task --analyze-performance true --store-decisions true --export-learnings true 2>/dev/null || true; fi'"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'echo \"\ud83c\udf93 Session End: Training models on accumulated experiences...\"; npx agentdb@latest train --domain \"code-edits\" --epochs 10 --batch-size 32 2>/dev/null || echo \"\u26a0\ufe0f Training skipped (insufficient data)\"; echo \"\ud83e\udde0 Memory Distillation: Compressing session learnings...\"; npx agentdb@latest optimize-memory --compress true --consolidate-patterns true 2>/dev/null || true; npx claude-flow@alpha hooks session-end --generate-summary true --persist-state true --export-metrics true'"
+          }
+        ]
+      }
+    ]
+  }
+}

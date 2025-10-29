@@ -69,14 +69,9 @@ class SqliteMemoryStore {
 
       this.isInitialized = true;
 
-      console.error(
-        `[${new Date().toISOString()}] INFO [memory-store] Initialized SQLite at: ${dbPath}`,
-      );
+      // Silenced for MCP mode
     } catch (error) {
-      console.error(
-        `[${new Date().toISOString()}] ERROR [memory-store] Failed to initialize:`,
-        error,
-      );
+      // Silenced for MCP mode
       throw error;
     }
   }
@@ -200,7 +195,7 @@ class SqliteMemoryStore {
         size: valueStr.length,
       };
     } catch (error) {
-      console.error(`[${new Date().toISOString()}] ERROR [memory-store] Store failed:`, error);
+      // Silenced for MCP mode
       throw error;
     }
   }
@@ -227,7 +222,7 @@ class SqliteMemoryStore {
         return row.value;
       }
     } catch (error) {
-      console.error(`[${new Date().toISOString()}] ERROR [memory-store] Retrieve failed:`, error);
+      // Silenced for MCP mode
       throw error;
     }
   }
@@ -251,7 +246,7 @@ class SqliteMemoryStore {
         accessCount: row.access_count,
       }));
     } catch (error) {
-      console.error(`[${new Date().toISOString()}] ERROR [memory-store] List failed:`, error);
+      // Silenced for MCP mode
       throw error;
     }
   }
@@ -265,7 +260,7 @@ class SqliteMemoryStore {
       const result = this.statements.get('delete').run(key, namespace);
       return result.changes > 0;
     } catch (error) {
-      console.error(`[${new Date().toISOString()}] ERROR [memory-store] Delete failed:`, error);
+      // Silenced for MCP mode
       throw error;
     }
   }
@@ -290,7 +285,7 @@ class SqliteMemoryStore {
         updatedAt: new Date(row.updated_at * 1000),
       }));
     } catch (error) {
-      console.error(`[${new Date().toISOString()}] ERROR [memory-store] Search failed:`, error);
+      // Silenced for MCP mode
       throw error;
     }
   }
@@ -302,7 +297,7 @@ class SqliteMemoryStore {
       const result = this.statements.get('cleanup').run();
       return result.changes;
     } catch (error) {
-      console.error(`[${new Date().toISOString()}] ERROR [memory-store] Cleanup failed:`, error);
+      // Silenced for MCP mode
       throw error;
     }
   }

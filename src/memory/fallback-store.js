@@ -26,10 +26,7 @@ class FallbackMemoryStore {
     if (!sqliteAvailable) {
       // Skip SQLite initialization if module can't be loaded
       const loadError = getLoadError();
-      console.error(
-        `[${new Date().toISOString()}] WARN [fallback-store] SQLite module not available:`,
-        loadError?.message || 'Unknown error',
-      );
+      // Silenced for MCP mode
       
       // Use in-memory store directly
       this.fallbackStore = new InMemoryStore(this.options);
@@ -44,15 +41,10 @@ class FallbackMemoryStore {
     try {
       this.primaryStore = new SqliteMemoryStore(this.options);
       await this.primaryStore.initialize();
-      console.error(
-        `[${new Date().toISOString()}] INFO [fallback-store] Successfully initialized SQLite store`,
-      );
+      // Silenced for MCP mode
       this.useFallback = false;
     } catch (error) {
-      console.error(
-        `[${new Date().toISOString()}] WARN [fallback-store] SQLite initialization failed:`,
-        error.message,
-      );
+      // Silenced for MCP mode
 
       // Fall back to in-memory store
       this.fallbackStore = new InMemoryStore(this.options);
@@ -64,18 +56,12 @@ class FallbackMemoryStore {
   }
 
   _logFallbackUsage() {
-    console.error(
-      `[${new Date().toISOString()}] INFO [fallback-store] Using in-memory store (data will not persist across sessions)`,
-    );
+    // Silenced for MCP mode
     
     if (isWindows()) {
-      console.error(
-        `[${new Date().toISOString()}] INFO [fallback-store] Windows detected. For persistent storage options, see: https://github.com/ruvnet/claude-code-flow/docs/windows-installation.md`,
-      );
+      // Silenced for MCP mode
     } else {
-      console.error(
-        `[${new Date().toISOString()}] INFO [fallback-store] To enable persistent storage, install the package locally: npm install claude-flow@alpha`,
-      );
+      // Silenced for MCP mode
     }
   }
 

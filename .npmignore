@@ -26,6 +26,19 @@ coverage/
 *.map
 tsconfig.tsbuildinfo
 
+# SQLite database files (runtime and temporary)
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+.claude/agentdb.db*
+.swarm/*.db*
+agentdb.db*
+
 # Source control
 .git/
 .gitignore
