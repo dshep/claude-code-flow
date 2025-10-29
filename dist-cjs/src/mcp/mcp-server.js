@@ -26,6 +26,10 @@ await import('./implementations/workflow-tools.js').catch(()=>{
         console.log('Workflow tools not loaded');
     }
 });
+const MCP_SILENT = true;
+function mcpLog(...args) {
+    if (!MCP_SILENT) console.error(...args);
+}
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const LEGACY_AGENT_MAPPING = {
@@ -57,13 +61,13 @@ let ClaudeFlowMCPServer = class ClaudeFlowMCPServer {
         this.tools = this.initializeTools();
         this.resources = this.initializeResources();
         this.initializeMemory().catch((err)=>{
-            console.error(`[${new Date().toISOString()}] ERROR [claude-flow-mcp] Failed to initialize shared memory:`, err);
+            mcpLog(`[${new Date().toISOString()}] ERROR [claude-flow-mcp] Failed to initialize shared memory:`, err);
         });
     }
     async initializeMemory() {
         await this.memoryStore.initialize();
-        console.error(`[${new Date().toISOString()}] INFO [claude-flow-mcp] (${this.sessionId}) Shared memory store initialized (same as npx)`);
-        console.error(`[${new Date().toISOString()}] INFO [claude-flow-mcp] (${this.sessionId}) Using ${this.memoryStore.isUsingFallback() ? 'in-memory' : 'SQLite'} storage`);
+        mcpLog(`[${new Date().toISOString()}] INFO [claude-flow-mcp] (${this.sessionId}) Shared memory store initialized (same as npx)`);
+        mcpLog(`[${new Date().toISOString()}] INFO [claude-flow-mcp] (${this.sessionId}) Using ${this.memoryStore.isUsingFallback() ? 'in-memory' : 'SQLite'} storage`);
     }
     initializeTools() {
         return {
@@ -574,7 +578,7 @@ let ClaudeFlowMCPServer = class ClaudeFlowMCPServer {
         }
     }
     handleInitialize(id, params) {
-        console.error(`[${new Date().toISOString()}] INFO [claude-flow-mcp] (${this.sessionId}) 🔌 Connection established: ${this.sessionId}`);
+        mcpLog(`[${new Date().toISOString()}] INFO [claude-flow-mcp] (${this.sessionId}) 🔌 Connection established: ${this.sessionId}`);
         return {
             jsonrpc: '2.0',
             id,
@@ -600,7 +604,7 @@ let ClaudeFlowMCPServer = class ClaudeFlowMCPServer {
     }
     async handleToolCall(id, params) {
         const { name, arguments: args } = params;
-        console.error(`[${new Date().toISOString()}] INFO [claude-flow-mcp] (${this.sessionId}) 🔧 Tool called: ${name}`);
+        mcpLog(`[${new Date().toISOString()}] INFO [claude-flow-mcp] (${this.sessionId}) 🔧 Tool called: ${name}`);
         try {
             const result = await this.executeTool(name, args);
             return {
@@ -690,9 +694,9 @@ let ClaudeFlowMCPServer = class ClaudeFlowMCPServer {
                             sessionId: this.sessionId
                         }
                     });
-                    console.error(`[${new Date().toISOString()}] INFO [claude-flow-mcp] Swarm persisted to memory: ${swarmId}`);
+                    mcpLog(`[${new Date().toISOString()}] INFO [claude-flow-mcp] Swarm persisted to memory: ${swarmId}`);
                 } catch (error) {
-                    console.error(`[${new Date().toISOString()}] ERROR [claude-flow-mcp] Failed to persist swarm:`, error);
+                    mcpLog(`[${new Date().toISOString()}] ERROR [claude-flow-mcp] Failed to persist swarm:`, error);
                 }
                 return {
                     success: true,
@@ -740,9 +744,9 @@ let ClaudeFlowMCPServer = class ClaudeFlowMCPServer {
                             }
                         });
                     }
-                    console.error(`[${new Date().toISOString()}] INFO [claude-flow-mcp] Agent persisted to memory: ${agentId}`);
+                    mcpLog(`[${new Date().toISOString()}] INFO [claude-flow-mcp] Agent persisted to memory: ${agentId}`);
                 } catch (error) {
-                    console.error(`[${new Date().toISOString()}] ERROR [claude-flow-mcp] Failed to persist agent:`, error);
+                    mcpLog(`[${new Date().toISOString()}] ERROR [claude-flow-mcp] Failed to persist agent:`, error);
                 }
                 if (global.agentTracker) {
                     global.agentTracker.trackAgent(agentId, {
@@ -1028,7 +1032,7 @@ let ClaudeFlowMCPServer = class ClaudeFlowMCPServer {
                             timestamp: new Date().toISOString()
                         };
                     } catch (error) {
-                        console.error(`[${new Date().toISOString()}] ERROR [claude-flow-mcp] Failed to list agents:`, error);
+                        mcpLog(`[${new Date().toISOString()}] ERROR [claude-flow-mcp] Failed to list agents:`, error);
                         return {
                             success: false,
                             error: error.message,
@@ -1155,7 +1159,7 @@ let ClaudeFlowMCPServer = class ClaudeFlowMCPServer {
                     }
                     return response;
                 } catch (error) {
-                    console.error(`[${new Date().toISOString()}] ERROR [claude-flow-mcp] Failed to get swarm status:`, error);
+                    mcpLog(`[${new Date().toISOString()}] ERROR [claude-flow-mcp] Failed to get swarm status:`, error);
                     return {
                         success: false,
                         error: error.message || 'Failed to retrieve swarm status',
@@ -1209,10 +1213,10 @@ let ClaudeFlowMCPServer = class ClaudeFlowMCPServer {
                                 sessionId: this.sessionId
                             }
                         });
-                        console.error(`[${new Date().toISOString()}] INFO [claude-flow-mcp] Task persisted to memory: ${taskId}`);
+                        mcpLog(`[${new Date().toISOString()}] INFO [claude-flow-mcp] Task persisted to memory: ${taskId}`);
                     }
                 } catch (error) {
-                    console.error(`[${new Date().toISOString()}] ERROR [claude-flow-mcp] Failed to persist task:`, error);
+                    mcpLog(`[${new Date().toISOString()}] ERROR [claude-flow-mcp] Failed to persist task:`, error);
                 }
                 return {
                     success: true,
@@ -1503,7 +1507,7 @@ let ClaudeFlowMCPServer = class ClaudeFlowMCPServer {
                             type: 'knowledge'
                         }
                     });
-                    console.error(`[${new Date().toISOString()}] INFO [claude-flow-mcp] Stored in shared memory: ${args.key} (namespace: ${args.namespace || 'default'})`);
+                    mcpLog(`[${new Date().toISOString()}] INFO [claude-flow-mcp] Stored in shared memory: ${args.key} (namespace: ${args.namespace || 'default'})`);
                     return {
                         success: true,
                         action: 'store',
@@ -1519,7 +1523,7 @@ let ClaudeFlowMCPServer = class ClaudeFlowMCPServer {
                     const value = await this.memoryStore.retrieve(args.key, {
                         namespace: args.namespace || 'default'
                     });
-                    console.error(`[${new Date().toISOString()}] INFO [claude-flow-mcp] Retrieved from shared memory: ${args.key} (found: ${value !== null})`);
+                    mcpLog(`[${new Date().toISOString()}] INFO [claude-flow-mcp] Retrieved from shared memory: ${args.key} (found: ${value !== null})`);
                     return {
                         success: true,
                         action: 'retrieve',
@@ -1535,7 +1539,7 @@ let ClaudeFlowMCPServer = class ClaudeFlowMCPServer {
                         namespace: args.namespace || 'default',
                         limit: 100
                     });
-                    console.error(`[${new Date().toISOString()}] INFO [claude-flow-mcp] Listed shared memory entries: ${entries.length} (namespace: ${args.namespace || 'default'})`);
+                    mcpLog(`[${new Date().toISOString()}] INFO [claude-flow-mcp] Listed shared memory entries: ${entries.length} (namespace: ${args.namespace || 'default'})`);
                     return {
                         success: true,
                         action: 'list',
@@ -1549,7 +1553,7 @@ let ClaudeFlowMCPServer = class ClaudeFlowMCPServer {
                     const deleted = await this.memoryStore.delete(args.key, {
                         namespace: args.namespace || 'default'
                     });
-                    console.error(`[${new Date().toISOString()}] INFO [claude-flow-mcp] Deleted from shared memory: ${args.key} (success: ${deleted})`);
+                    mcpLog(`[${new Date().toISOString()}] INFO [claude-flow-mcp] Deleted from shared memory: ${args.key} (success: ${deleted})`);
                     return {
                         success: true,
                         action: 'delete',
@@ -1564,7 +1568,7 @@ let ClaudeFlowMCPServer = class ClaudeFlowMCPServer {
                         namespace: args.namespace || 'default',
                         limit: 50
                     });
-                    console.error(`[${new Date().toISOString()}] INFO [claude-flow-mcp] Searched shared memory: ${results.length} results for "${args.value}"`);
+                    mcpLog(`[${new Date().toISOString()}] INFO [claude-flow-mcp] Searched shared memory: ${results.length} results for "${args.value}"`);
                     return {
                         success: true,
                         action: 'search',
@@ -1583,7 +1587,7 @@ let ClaudeFlowMCPServer = class ClaudeFlowMCPServer {
                     };
             }
         } catch (error) {
-            console.error(`[${new Date().toISOString()}] ERROR [claude-flow-mcp] Shared memory operation failed:`, error);
+            mcpLog(`[${new Date().toISOString()}] ERROR [claude-flow-mcp] Shared memory operation failed:`, error);
             return {
                 success: false,
                 error: error.message,
@@ -1615,7 +1619,7 @@ let ClaudeFlowMCPServer = class ClaudeFlowMCPServer {
                 timestamp: new Date().toISOString()
             };
         } catch (error) {
-            console.error(`[${new Date().toISOString()}] ERROR [claude-flow-mcp] Memory search failed:`, error);
+            mcpLog(`[${new Date().toISOString()}] ERROR [claude-flow-mcp] Memory search failed:`, error);
             return {
                 success: false,
                 error: error.message,
@@ -1630,7 +1634,7 @@ let ClaudeFlowMCPServer = class ClaudeFlowMCPServer {
             });
             return activeSwarmId || null;
         } catch (error) {
-            console.error(`[${new Date().toISOString()}] ERROR [claude-flow-mcp] Failed to get active swarm:`, error);
+            mcpLog(`[${new Date().toISOString()}] ERROR [claude-flow-mcp] Failed to get active swarm:`, error);
             return null;
         }
     }
@@ -1649,8 +1653,8 @@ let ClaudeFlowMCPServer = class ClaudeFlowMCPServer {
 };
 async function startMCPServer() {
     const server = new ClaudeFlowMCPServer();
-    console.error(`[${new Date().toISOString()}] INFO [claude-flow-mcp] (${server.sessionId}) Claude-Flow MCP server starting in stdio mode`);
-    console.error({
+    mcpLog(`[${new Date().toISOString()}] INFO [claude-flow-mcp] (${server.sessionId}) Claude-Flow MCP server starting in stdio mode`);
+    mcpLog({
         arch: process.arch,
         mode: 'mcp-stdio',
         nodeVersion: process.version,
@@ -1660,17 +1664,6 @@ async function startMCPServer() {
         sessionId: server.sessionId,
         version: server.version
     });
-    console.log(JSON.stringify({
-        jsonrpc: '2.0',
-        method: 'server.initialized',
-        params: {
-            serverInfo: {
-                name: 'claude-flow',
-                version: server.version,
-                capabilities: server.capabilities
-            }
-        }
-    }));
     let buffer = '';
     process.stdin.on('data', async (chunk)=>{
         buffer += chunk.toString();
@@ -1685,25 +1678,25 @@ async function startMCPServer() {
                         console.log(JSON.stringify(response));
                     }
                 } catch (error) {
-                    console.error(`[${new Date().toISOString()}] ERROR [claude-flow-mcp] Failed to parse message:`, error.message);
+                    mcpLog(`[${new Date().toISOString()}] ERROR [claude-flow-mcp] Failed to parse message:`, error.message);
                 }
             }
         }
     });
     process.stdin.on('end', ()=>{
-        console.error(`[${new Date().toISOString()}] INFO [claude-flow-mcp] (${server.sessionId}) 🔌 Connection closed: ${server.sessionId}`);
-        console.error(`[${new Date().toISOString()}] INFO [claude-flow-mcp] (${server.sessionId}) MCP: stdin closed, shutting down...`);
+        mcpLog(`[${new Date().toISOString()}] INFO [claude-flow-mcp] (${server.sessionId}) 🔌 Connection closed: ${server.sessionId}`);
+        mcpLog(`[${new Date().toISOString()}] INFO [claude-flow-mcp] (${server.sessionId}) MCP: stdin closed, shutting down...`);
         process.exit(0);
     });
     process.on('SIGINT', async ()=>{
-        console.error(`[${new Date().toISOString()}] INFO [claude-flow-mcp] (${server.sessionId}) Received SIGINT, shutting down gracefully...`);
+        mcpLog(`[${new Date().toISOString()}] INFO [claude-flow-mcp] (${server.sessionId}) Received SIGINT, shutting down gracefully...`);
         if (server.sharedMemory) {
             await server.sharedMemory.close();
         }
         process.exit(0);
     });
     process.on('SIGTERM', async ()=>{
-        console.error(`[${new Date().toISOString()}] INFO [claude-flow-mcp] (${server.sessionId}) Received SIGTERM, shutting down gracefully...`);
+        mcpLog(`[${new Date().toISOString()}] INFO [claude-flow-mcp] (${server.sessionId}) Received SIGTERM, shutting down gracefully...`);
         if (server.sharedMemory) {
             await server.sharedMemory.close();
         }
