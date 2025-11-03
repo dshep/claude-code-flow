@@ -584,15 +584,26 @@ export async function execRuvSwarmHook(hookName, params = {}) {
   }
 }
 
+// Cache ruv-swarm availability check (avoid repeated timeouts)
+let ruvSwarmAvailableCache = null;
+
 export async function checkRuvSwarmAvailable() {
+  // Return cached result if already checked
+  if (ruvSwarmAvailableCache !== null) {
+    return ruvSwarmAvailableCache;
+  }
+
   try {
-    const result = await runCommand('npx', ['ruv-swarm', '--version'], {
+    // Use 'which' instead of '--version' (instant, no hang)
+    const result = await runCommand('which', ['ruv-swarm'], {
       stdout: 'piped',
       stderr: 'piped',
     });
 
+    ruvSwarmAvailableCache = result.success;
     return result.success;
   } catch {
+    ruvSwarmAvailableCache = false;
     return false;
   }
 }

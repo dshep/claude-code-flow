@@ -148,15 +148,10 @@ async function preTaskCommand(subArgs, flags) {
 
     console.log(`  💾 Saved to .swarm/memory.db`);
 
-    // Execute ruv-swarm hook if available (with timeout for npx scenarios)
+    // Execute ruv-swarm hook if available (fast check with cache)
     try {
-      const checkPromise = checkRuvSwarmAvailable();
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Timeout')), 3000)
-      );
-      
-      const isAvailable = await Promise.race([checkPromise, timeoutPromise]);
-      
+      const isAvailable = await checkRuvSwarmAvailable();
+
       if (isAvailable) {
         console.log(`\n🔄 Executing ruv-swarm pre-task hook...`);
         const hookResult = await execRuvSwarmHook('pre-task', {
@@ -180,7 +175,7 @@ async function preTaskCommand(subArgs, flags) {
         }
       }
     } catch (err) {
-      // Skip ruv-swarm hook if it times out or fails
+      // Skip ruv-swarm hook if it fails (no timeout needed - 'which' is instant)
       console.log(`\n⚠️  Skipping ruv-swarm hook (${err.message})`);
     }
 

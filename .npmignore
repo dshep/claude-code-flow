@@ -35,9 +35,10 @@ tsconfig.tsbuildinfo
 *.sqlite-journal
 *.sqlite-wal
 *.sqlite-shm
-.claude/agentdb.db*
+.claude/*.db*
 .swarm/*.db*
-agentdb.db*
+docs/**/*.db*
+docs/**/*.backup
 
 # Source control
 .git/
@@ -77,6 +78,10 @@ init-test/
 exported-memory.json
 test-memory.json
 *.json.bak
+.claude/settings.local.json*
+.claude/checkpoints/
+.claude/cache/
+.claude-flow/
 
 # Reports and analysis
 reports/
