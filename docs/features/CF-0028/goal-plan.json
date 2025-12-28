@@ -3,9 +3,9 @@
   "github_issue": 28,
   "parent_epic": null,
   "title": "Workflow Engine Feature Completeness - SPARC Workflow Support",
-  "tier": 4,
-  "complexity": "enterprise",
-  "estimated_duration": "80-120 hours",
+  "tier": 3,
+  "complexity": "complex",
+  "estimated_duration": "60-100 hours",
   "created": "2025-12-28T00:00:00Z",
   "methodology": "SPARC-GOAP",
 
@@ -87,40 +87,8 @@
       ]
     },
     {
-      "phase": "stakeholder",
-      "phase_number": 2,
-      "command": "/sparc-stakeholder",
-      "estimated_hours": 4,
-      "deliverables": [
-        "docs/features/CF-0028/stakeholder-review.md"
-      ],
-      "success_criteria": [
-        "Priority validation from project stakeholders",
-        "Resource allocation confirmed",
-        "Timeline approved"
-      ],
-      "milestones": [
-        {
-          "id": "stakeholder-1",
-          "name": "Priority Review",
-          "description": "Validate HIGH vs MEDIUM priority classification",
-          "estimated_hours": 2,
-          "dependencies": ["spec-3"],
-          "deliverables": ["docs/features/CF-0028/priority-review.md"]
-        },
-        {
-          "id": "stakeholder-2",
-          "name": "Resource Allocation",
-          "description": "Confirm development resources and timeline",
-          "estimated_hours": 2,
-          "dependencies": ["stakeholder-1"],
-          "deliverables": ["docs/features/CF-0028/resource-plan.md"]
-        }
-      ]
-    },
-    {
       "phase": "research",
-      "phase_number": 3,
+      "phase_number": 2,
       "command": "/sparc-research",
       "estimated_hours": 8,
       "deliverables": [
@@ -139,7 +107,7 @@
           "name": "Codebase Analysis",
           "description": "Analyze automation-executor.js patterns and extension points",
           "estimated_hours": 3,
-          "dependencies": ["stakeholder-2"],
+          "dependencies": ["spec-3"],
           "deliverables": ["docs/features/CF-0028/codebase-analysis.md"]
         },
         {
@@ -162,7 +130,7 @@
     },
     {
       "phase": "pseudocode",
-      "phase_number": 4,
+      "phase_number": 3,
       "command": "/sparc-pseudo",
       "estimated_hours": 8,
       "deliverables": [
@@ -219,7 +187,7 @@
     },
     {
       "phase": "architecture",
-      "phase_number": 5,
+      "phase_number": 4,
       "command": "/sparc-arch",
       "estimated_hours": 10,
       "deliverables": [
@@ -277,7 +245,7 @@
     },
     {
       "phase": "refinement-tdd",
-      "phase_number": 6,
+      "phase_number": 5,
       "command": "/sparc-tdd",
       "estimated_hours": 48,
       "deliverables": [
@@ -483,7 +451,7 @@
     },
     {
       "phase": "integration",
-      "phase_number": 7,
+      "phase_number": 6,
       "command": "/sparc-integration",
       "estimated_hours": 12,
       "deliverables": [
@@ -525,7 +493,7 @@
     },
     {
       "phase": "performance",
-      "phase_number": 8,
+      "phase_number": 7,
       "command": "/sparc-perf",
       "estimated_hours": 6,
       "deliverables": [
@@ -557,7 +525,7 @@
     },
     {
       "phase": "review",
-      "phase_number": 9,
+      "phase_number": 8,
       "command": "/sparc-review",
       "estimated_hours": 8,
       "deliverables": [
@@ -597,7 +565,7 @@
     },
     {
       "phase": "documentation",
-      "phase_number": 10,
+      "phase_number": 9,
       "command": "/sparc-docs",
       "estimated_hours": 6,
       "deliverables": [
@@ -630,7 +598,7 @@
     },
     {
       "phase": "completion",
-      "phase_number": 11,
+      "phase_number": 10,
       "command": "/sparc-complete",
       "estimated_hours": 4,
       "deliverables": [
@@ -973,7 +941,6 @@
 
   "effort_summary": {
     "specification": 6,
-    "stakeholder": 4,
     "research": 8,
     "pseudocode": 8,
     "architecture": 10,
@@ -983,11 +950,11 @@
     "review": 8,
     "documentation": 6,
     "completion": 4,
-    "total_estimated": 120,
+    "total_estimated": 116,
     "buffer": 12,
-    "total_with_buffer": 132,
+    "total_with_buffer": 128,
     "confidence": "medium",
-    "notes": "Estimates assume parallel work on some sub-issues. Buffer accounts for unforeseen complexity in loop-back and checkpoint iteration features."
+    "notes": "Tier 3 (Complex) - stakeholder phase removed. Estimates assume parallel work on some sub-issues. Buffer accounts for unforeseen complexity in loop-back and checkpoint iteration features."
   },
 
   "deliveryPlan": {
@@ -1009,60 +976,54 @@
     },
     {
       "step": 2,
-      "action": "Execute stakeholder review phase",
-      "command": "/sparc-stakeholder",
-      "owner": "Developer"
-    },
-    {
-      "step": 3,
       "action": "Execute research phase",
       "command": "/sparc-research",
       "owner": "Developer"
     },
     {
-      "step": 4,
+      "step": 3,
       "action": "Execute pseudocode phase",
       "command": "/sparc-pseudo",
       "owner": "Developer"
     },
     {
-      "step": 5,
+      "step": 4,
       "action": "Execute architecture phase",
       "command": "/sparc-arch",
       "owner": "Developer"
     },
     {
-      "step": 6,
+      "step": 5,
       "action": "Execute TDD phase for each sub-issue",
       "command": "/sparc-tdd",
       "owner": "Developer"
     },
     {
-      "step": 7,
+      "step": 6,
       "action": "Execute integration phase",
       "command": "/sparc-integration",
       "owner": "Developer"
     },
     {
-      "step": 8,
+      "step": 7,
       "action": "Execute performance phase",
       "command": "/sparc-perf",
       "owner": "Developer"
     },
     {
-      "step": 9,
+      "step": 8,
       "action": "Execute review phase",
       "command": "/sparc-review",
       "owner": "Developer"
     },
     {
-      "step": 10,
+      "step": 9,
       "action": "Execute documentation phase",
       "command": "/sparc-docs",
       "owner": "Developer"
     },
     {
-      "step": 11,
+      "step": 10,
       "action": "Execute completion phase",
       "command": "/sparc-complete",
       "owner": "Developer"
@@ -1070,7 +1031,7 @@
   ],
 
   "notes": [
-    "This is a Tier 4 (Enterprise/Epic) task requiring full SPARC workflow with stakeholder review",
+    "This is a Tier 3 (Complex) task - 10 phases, no stakeholder review required",
     "8 sub-issues identified: 4 HIGH priority (#29, #31, #32, #37), 4 MEDIUM priority (#33, #34, #35, #36)",
     "HIGH priority features are blocking for SPARC workflow automation",
     "MEDIUM priority features enhance but don't block workflow execution",
