@@ -1,0 +1,1082 @@
+{
+  "task_id": "CF-0028",
+  "github_issue": 28,
+  "parent_epic": null,
+  "title": "Workflow Engine Feature Completeness - SPARC Workflow Support",
+  "tier": 4,
+  "complexity": "enterprise",
+  "estimated_duration": "80-120 hours",
+  "created": "2025-12-28T00:00:00Z",
+  "methodology": "SPARC-GOAP",
+
+  "goal_state": {
+    "feature_complete": true,
+    "tests_passing": true,
+    "test_coverage": ">=90%",
+    "explicit_error_handling": true,
+    "prerequisites_validation": true,
+    "checkpoint_enforcement": true,
+    "iterative_tasks_support": true,
+    "phase_loopback_support": true,
+    "hivemind_workers_support": true,
+    "hybrid_execution_mode": true,
+    "workflow_level_hooks": true,
+    "extended_variable_interpolation": true,
+    "sparc_tier_1_4_workflows_passing": true,
+    "documentation_complete": true
+  },
+
+  "current_state": {
+    "feature_complete": false,
+    "tests_passing": true,
+    "test_coverage": "~40%",
+    "explicit_error_handling": true,
+    "prerequisites_validation": false,
+    "checkpoint_enforcement": false,
+    "iterative_tasks_support": false,
+    "phase_loopback_support": false,
+    "hivemind_workers_support": false,
+    "hybrid_execution_mode": false,
+    "workflow_level_hooks": false,
+    "extended_variable_interpolation": false,
+    "sparc_tier_1_4_workflows_passing": false,
+    "documentation_complete": false
+  },
+
+  "sparc_phases": [
+    {
+      "phase": "specification",
+      "phase_number": 1,
+      "command": "/sparc-spec",
+      "estimated_hours": 6,
+      "deliverables": [
+        "docs/features/CF-0028/specification.md",
+        "docs/features/CF-0028/acceptance-criteria.md"
+      ],
+      "success_criteria": [
+        "All 8 sub-issue requirements documented",
+        "Gap analysis complete",
+        "Success metrics defined",
+        "Dependency graph established"
+      ],
+      "milestones": [
+        {
+          "id": "spec-1",
+          "name": "Gap Analysis Documentation",
+          "description": "Document current vs required functionality for all 8 sub-issues",
+          "estimated_hours": 2,
+          "dependencies": [],
+          "deliverables": ["docs/features/CF-0028/gap-analysis.md"]
+        },
+        {
+          "id": "spec-2",
+          "name": "Interface Contracts",
+          "description": "Define API contracts for each new feature",
+          "estimated_hours": 2,
+          "dependencies": ["spec-1"],
+          "deliverables": ["docs/features/CF-0028/api-contracts.md"]
+        },
+        {
+          "id": "spec-3",
+          "name": "Acceptance Criteria",
+          "description": "Finalize acceptance criteria for each sub-issue",
+          "estimated_hours": 2,
+          "dependencies": ["spec-2"],
+          "deliverables": ["docs/features/CF-0028/acceptance-criteria.md"]
+        }
+      ]
+    },
+    {
+      "phase": "stakeholder",
+      "phase_number": 2,
+      "command": "/sparc-stakeholder",
+      "estimated_hours": 4,
+      "deliverables": [
+        "docs/features/CF-0028/stakeholder-review.md"
+      ],
+      "success_criteria": [
+        "Priority validation from project stakeholders",
+        "Resource allocation confirmed",
+        "Timeline approved"
+      ],
+      "milestones": [
+        {
+          "id": "stakeholder-1",
+          "name": "Priority Review",
+          "description": "Validate HIGH vs MEDIUM priority classification",
+          "estimated_hours": 2,
+          "dependencies": ["spec-3"],
+          "deliverables": ["docs/features/CF-0028/priority-review.md"]
+        },
+        {
+          "id": "stakeholder-2",
+          "name": "Resource Allocation",
+          "description": "Confirm development resources and timeline",
+          "estimated_hours": 2,
+          "dependencies": ["stakeholder-1"],
+          "deliverables": ["docs/features/CF-0028/resource-plan.md"]
+        }
+      ]
+    },
+    {
+      "phase": "research",
+      "phase_number": 3,
+      "command": "/sparc-research",
+      "estimated_hours": 8,
+      "deliverables": [
+        "docs/features/CF-0028/research.md",
+        "docs/features/CF-0028/technical-analysis.md"
+      ],
+      "success_criteria": [
+        "Existing codebase patterns analyzed",
+        "Integration points identified",
+        "Performance implications documented",
+        "Risk factors enumerated"
+      ],
+      "milestones": [
+        {
+          "id": "research-1",
+          "name": "Codebase Analysis",
+          "description": "Analyze automation-executor.js patterns and extension points",
+          "estimated_hours": 3,
+          "dependencies": ["stakeholder-2"],
+          "deliverables": ["docs/features/CF-0028/codebase-analysis.md"]
+        },
+        {
+          "id": "research-2",
+          "name": "Integration Analysis",
+          "description": "Analyze checkpoint-manager.ts, SwarmOrchestrator.ts, workflow-hooks.ts",
+          "estimated_hours": 3,
+          "dependencies": ["research-1"],
+          "deliverables": ["docs/features/CF-0028/integration-analysis.md"]
+        },
+        {
+          "id": "research-3",
+          "name": "Performance Research",
+          "description": "Analyze performance implications of new features",
+          "estimated_hours": 2,
+          "dependencies": ["research-2"],
+          "deliverables": ["docs/features/CF-0028/performance-research.md"]
+        }
+      ]
+    },
+    {
+      "phase": "pseudocode",
+      "phase_number": 4,
+      "command": "/sparc-pseudo",
+      "estimated_hours": 8,
+      "deliverables": [
+        "docs/features/CF-0028/pseudocode.md",
+        "docs/features/CF-0028/algorithms.md"
+      ],
+      "success_criteria": [
+        "Algorithms for all 8 features designed",
+        "Edge cases covered",
+        "Error handling patterns defined"
+      ],
+      "milestones": [
+        {
+          "id": "pseudo-1",
+          "name": "Prerequisites Validation Algorithm",
+          "description": "Design algorithm for #29 prerequisites validation",
+          "estimated_hours": 1,
+          "dependencies": ["research-3"],
+          "deliverables": ["docs/features/CF-0028/pseudo-prerequisites.md"]
+        },
+        {
+          "id": "pseudo-2",
+          "name": "Checkpoint Enforcement Algorithm",
+          "description": "Design algorithm for #31 checkpoint enforcement with iteration",
+          "estimated_hours": 2,
+          "dependencies": ["pseudo-1"],
+          "deliverables": ["docs/features/CF-0028/pseudo-checkpoints.md"]
+        },
+        {
+          "id": "pseudo-3",
+          "name": "Iterative Tasks Algorithm",
+          "description": "Design algorithm for #32 iterative task execution",
+          "estimated_hours": 1,
+          "dependencies": ["pseudo-2"],
+          "deliverables": ["docs/features/CF-0028/pseudo-iterative.md"]
+        },
+        {
+          "id": "pseudo-4",
+          "name": "Phase Loop-Back Algorithm",
+          "description": "Design algorithm for #37 review->TDD loop-back",
+          "estimated_hours": 2,
+          "dependencies": ["pseudo-3"],
+          "deliverables": ["docs/features/CF-0028/pseudo-loopback.md"]
+        },
+        {
+          "id": "pseudo-5",
+          "name": "Remaining Features Algorithms",
+          "description": "Design algorithms for #33, #34, #35, #36",
+          "estimated_hours": 2,
+          "dependencies": ["pseudo-4"],
+          "deliverables": ["docs/features/CF-0028/pseudo-remaining.md"]
+        }
+      ]
+    },
+    {
+      "phase": "architecture",
+      "phase_number": 5,
+      "command": "/sparc-arch",
+      "estimated_hours": 10,
+      "deliverables": [
+        "docs/features/CF-0028/architecture.md",
+        "docs/features/CF-0028/component-diagram.md"
+      ],
+      "success_criteria": [
+        "Component architecture defined",
+        "Integration points specified",
+        "Data flow patterns established",
+        "Error boundaries designed"
+      ],
+      "milestones": [
+        {
+          "id": "arch-1",
+          "name": "Core Extension Architecture",
+          "description": "Design extension architecture for automation-executor.js",
+          "estimated_hours": 3,
+          "dependencies": ["pseudo-5"],
+          "deliverables": ["docs/features/CF-0028/arch-core.md"]
+        },
+        {
+          "id": "arch-2",
+          "name": "Checkpoint System Architecture",
+          "description": "Design checkpoint-manager integration and enforcement",
+          "estimated_hours": 2,
+          "dependencies": ["arch-1"],
+          "deliverables": ["docs/features/CF-0028/arch-checkpoints.md"]
+        },
+        {
+          "id": "arch-3",
+          "name": "HiveMind Integration Architecture",
+          "description": "Design SwarmOrchestrator integration for workers",
+          "estimated_hours": 2,
+          "dependencies": ["arch-2"],
+          "deliverables": ["docs/features/CF-0028/arch-hivemind.md"]
+        },
+        {
+          "id": "arch-4",
+          "name": "Hooks System Architecture",
+          "description": "Design workflow-hooks extension for new hook types",
+          "estimated_hours": 2,
+          "dependencies": ["arch-3"],
+          "deliverables": ["docs/features/CF-0028/arch-hooks.md"]
+        },
+        {
+          "id": "arch-5",
+          "name": "Integration Architecture",
+          "description": "Define cross-component integration patterns",
+          "estimated_hours": 1,
+          "dependencies": ["arch-4"],
+          "deliverables": ["docs/features/CF-0028/arch-integration.md"]
+        }
+      ]
+    },
+    {
+      "phase": "refinement-tdd",
+      "phase_number": 6,
+      "command": "/sparc-tdd",
+      "estimated_hours": 48,
+      "deliverables": [
+        "src/cli/simple-commands/automation-executor.js",
+        "src/cli/simple-commands/prerequisites-validator.js",
+        "src/verification/checkpoint-enforcer.ts",
+        "src/cli/simple-commands/iterative-executor.js",
+        "src/cli/simple-commands/loopback-handler.js",
+        "src/hive-mind/integration/worker-spawner.ts",
+        "src/cli/simple-commands/hybrid-executor.js",
+        "src/services/agentic-flow-hooks/extended-workflow-hooks.ts",
+        "src/cli/simple-commands/variable-interpolator.js",
+        "tests/unit/cli/prerequisites-validator.test.js",
+        "tests/unit/verification/checkpoint-enforcer.test.ts",
+        "tests/unit/cli/iterative-executor.test.js",
+        "tests/unit/cli/loopback-handler.test.js",
+        "tests/unit/hive-mind/worker-spawner.test.ts",
+        "tests/unit/cli/hybrid-executor.test.js",
+        "tests/unit/services/extended-workflow-hooks.test.ts",
+        "tests/unit/cli/variable-interpolator.test.js"
+      ],
+      "success_criteria": [
+        "All 8 sub-issues implemented",
+        "90%+ test coverage",
+        "All tests passing",
+        "No critical/high review issues"
+      ],
+      "milestones": [
+        {
+          "id": "tdd-1",
+          "name": "Prerequisites Validation (#29)",
+          "description": "TDD implementation of prerequisites validation",
+          "estimated_hours": 6,
+          "dependencies": ["arch-5"],
+          "deliverables": [
+            "src/cli/simple-commands/prerequisites-validator.js",
+            "tests/unit/cli/prerequisites-validator.test.js"
+          ],
+          "preconditions": ["Architecture approved"],
+          "validation": ["npm test -- prerequisites-validator"],
+          "tdd_cycle": [
+            "Write tests for artifact validation",
+            "Write tests for memory key validation",
+            "Write tests for validation script execution",
+            "Implement prerequisites-validator.js",
+            "Integrate with automation-executor.js",
+            "Refactor for clarity"
+          ]
+        },
+        {
+          "id": "tdd-2",
+          "name": "Checkpoint Enforcement (#31)",
+          "description": "TDD implementation of checkpoint enforcement with iteration",
+          "estimated_hours": 8,
+          "dependencies": ["tdd-1"],
+          "deliverables": [
+            "src/verification/checkpoint-enforcer.ts",
+            "tests/unit/verification/checkpoint-enforcer.test.ts"
+          ],
+          "preconditions": ["Prerequisites validation complete"],
+          "validation": ["npm test -- checkpoint-enforcer"],
+          "tdd_cycle": [
+            "Write tests for checkpoint evaluation",
+            "Write tests for issue detection",
+            "Write tests for iteration loop",
+            "Write tests for SPARC command re-invocation",
+            "Implement checkpoint-enforcer.ts",
+            "Integrate with checkpoint-manager.ts",
+            "Refactor for clarity"
+          ]
+        },
+        {
+          "id": "tdd-3",
+          "name": "Iterative Tasks (#32)",
+          "description": "TDD implementation of iterative task execution",
+          "estimated_hours": 5,
+          "dependencies": ["tdd-2"],
+          "deliverables": [
+            "src/cli/simple-commands/iterative-executor.js",
+            "tests/unit/cli/iterative-executor.test.js"
+          ],
+          "preconditions": ["Checkpoint enforcement complete"],
+          "validation": ["npm test -- iterative-executor"],
+          "tdd_cycle": [
+            "Write tests for iteration loop",
+            "Write tests for iteration variable",
+            "Write tests for per-iteration agentdb",
+            "Implement iterative-executor.js",
+            "Integrate with automation-executor.js",
+            "Refactor for clarity"
+          ]
+        },
+        {
+          "id": "tdd-4",
+          "name": "Phase Loop-Back (#37)",
+          "description": "TDD implementation of review->TDD loop-back",
+          "estimated_hours": 8,
+          "dependencies": ["tdd-3"],
+          "deliverables": [
+            "src/cli/simple-commands/loopback-handler.js",
+            "tests/unit/cli/loopback-handler.test.js"
+          ],
+          "preconditions": ["Iterative tasks complete"],
+          "validation": ["npm test -- loopback-handler"],
+          "tdd_cycle": [
+            "Write tests for condition evaluation",
+            "Write tests for loop tracking",
+            "Write tests for target task re-invocation",
+            "Write tests for intermediate phase re-execution",
+            "Implement loopback-handler.js",
+            "Integrate with automation-executor.js",
+            "Refactor for clarity"
+          ]
+        },
+        {
+          "id": "tdd-5",
+          "name": "HiveMind Workers (#33)",
+          "description": "TDD implementation of HiveMind worker spawning",
+          "estimated_hours": 6,
+          "dependencies": ["tdd-4"],
+          "deliverables": [
+            "src/hive-mind/integration/worker-spawner.ts",
+            "tests/unit/hive-mind/worker-spawner.test.ts"
+          ],
+          "preconditions": ["Phase loop-back complete"],
+          "validation": ["npm test -- worker-spawner"],
+          "tdd_cycle": [
+            "Write tests for worker spawning",
+            "Write tests for workload distribution",
+            "Write tests for result coordination",
+            "Implement worker-spawner.ts",
+            "Integrate with SwarmOrchestrator.ts",
+            "Refactor for clarity"
+          ]
+        },
+        {
+          "id": "tdd-6",
+          "name": "Hybrid Execution Mode (#34)",
+          "description": "TDD implementation of hybrid execution mode",
+          "estimated_hours": 6,
+          "dependencies": ["tdd-5"],
+          "deliverables": [
+            "src/cli/simple-commands/hybrid-executor.js",
+            "tests/unit/cli/hybrid-executor.test.js"
+          ],
+          "preconditions": ["HiveMind workers complete"],
+          "validation": ["npm test -- hybrid-executor"],
+          "tdd_cycle": [
+            "Write tests for stream-chain backbone",
+            "Write tests for HiveMind parallel integration",
+            "Write tests for checkpoint array processing",
+            "Write tests for rollback mechanism",
+            "Implement hybrid-executor.js",
+            "Integrate with automation-executor.js",
+            "Refactor for clarity"
+          ]
+        },
+        {
+          "id": "tdd-7",
+          "name": "Workflow-Level Hooks (#35)",
+          "description": "TDD implementation of workflow-level hooks",
+          "estimated_hours": 5,
+          "dependencies": ["tdd-6"],
+          "deliverables": [
+            "src/services/agentic-flow-hooks/extended-workflow-hooks.ts",
+            "tests/unit/services/extended-workflow-hooks.test.ts"
+          ],
+          "preconditions": ["Hybrid execution complete"],
+          "validation": ["npm test -- extended-workflow-hooks"],
+          "tdd_cycle": [
+            "Write tests for on-workflow-start",
+            "Write tests for on-checkpoint",
+            "Write tests for on-error",
+            "Write tests for on-workflow-complete",
+            "Implement extended-workflow-hooks.ts",
+            "Integrate with workflow-hooks.ts",
+            "Refactor for clarity"
+          ]
+        },
+        {
+          "id": "tdd-8",
+          "name": "Variable Interpolation (#36)",
+          "description": "TDD implementation of extended variable interpolation",
+          "estimated_hours": 4,
+          "dependencies": ["tdd-7"],
+          "deliverables": [
+            "src/cli/simple-commands/variable-interpolator.js",
+            "tests/unit/cli/variable-interpolator.test.js"
+          ],
+          "preconditions": ["Workflow-level hooks complete"],
+          "validation": ["npm test -- variable-interpolator"],
+          "tdd_cycle": [
+            "Write tests for task context variables",
+            "Write tests for error context variables",
+            "Write tests for checkpoint context variables",
+            "Write tests for iteration context variables",
+            "Implement variable-interpolator.js",
+            "Integrate with automation-executor.js",
+            "Refactor for clarity"
+          ]
+        }
+      ]
+    },
+    {
+      "phase": "integration",
+      "phase_number": 7,
+      "command": "/sparc-integration",
+      "estimated_hours": 12,
+      "deliverables": [
+        "tests/integration/workflow-engine.test.js",
+        "tests/e2e/sparc-tier-workflows.test.js"
+      ],
+      "success_criteria": [
+        "All integration tests passing",
+        "SPARC Tier 1-4 workflows execute successfully",
+        "No Rule 10 violations",
+        "Real component integration verified"
+      ],
+      "milestones": [
+        {
+          "id": "integration-1",
+          "name": "Component Integration Tests",
+          "description": "Integration tests for all new components",
+          "estimated_hours": 4,
+          "dependencies": ["tdd-8"],
+          "deliverables": ["tests/integration/workflow-engine.test.js"]
+        },
+        {
+          "id": "integration-2",
+          "name": "SPARC Tier 1 Workflow E2E",
+          "description": "End-to-end test for Tier 1 workflow",
+          "estimated_hours": 2,
+          "dependencies": ["integration-1"],
+          "deliverables": ["tests/e2e/sparc-tier-1.test.js"]
+        },
+        {
+          "id": "integration-3",
+          "name": "SPARC Tier 2-4 Workflows E2E",
+          "description": "End-to-end tests for Tier 2-4 workflows",
+          "estimated_hours": 6,
+          "dependencies": ["integration-2"],
+          "deliverables": ["tests/e2e/sparc-tier-2-4.test.js"]
+        }
+      ]
+    },
+    {
+      "phase": "performance",
+      "phase_number": 8,
+      "command": "/sparc-perf",
+      "estimated_hours": 6,
+      "deliverables": [
+        "docs/features/CF-0028/performance-report.md"
+      ],
+      "success_criteria": [
+        "Performance benchmarks established",
+        "No performance regressions",
+        "Memory usage within bounds"
+      ],
+      "milestones": [
+        {
+          "id": "perf-1",
+          "name": "Benchmark Suite",
+          "description": "Create performance benchmarks for new features",
+          "estimated_hours": 3,
+          "dependencies": ["integration-3"],
+          "deliverables": ["tests/benchmarks/workflow-engine.bench.js"]
+        },
+        {
+          "id": "perf-2",
+          "name": "Performance Optimization",
+          "description": "Optimize any bottlenecks identified",
+          "estimated_hours": 3,
+          "dependencies": ["perf-1"],
+          "deliverables": ["docs/features/CF-0028/performance-report.md"]
+        }
+      ]
+    },
+    {
+      "phase": "review",
+      "phase_number": 9,
+      "command": "/sparc-review",
+      "estimated_hours": 8,
+      "deliverables": [
+        "docs/features/CF-0028/review-report.md"
+      ],
+      "success_criteria": [
+        "Code quality validated",
+        "Security review passed",
+        "No critical/high issues remaining"
+      ],
+      "milestones": [
+        {
+          "id": "review-1",
+          "name": "Code Quality Review",
+          "description": "Review code quality, patterns, and maintainability",
+          "estimated_hours": 4,
+          "dependencies": ["perf-2"],
+          "deliverables": ["docs/features/CF-0028/code-quality-review.md"]
+        },
+        {
+          "id": "review-2",
+          "name": "Security Review",
+          "description": "Review security implications of new features",
+          "estimated_hours": 2,
+          "dependencies": ["review-1"],
+          "deliverables": ["docs/features/CF-0028/security-review.md"]
+        },
+        {
+          "id": "review-3",
+          "name": "Issue Resolution",
+          "description": "Address any issues found in reviews",
+          "estimated_hours": 2,
+          "dependencies": ["review-2"],
+          "deliverables": ["docs/features/CF-0028/review-report.md"]
+        }
+      ]
+    },
+    {
+      "phase": "documentation",
+      "phase_number": 10,
+      "command": "/sparc-docs",
+      "estimated_hours": 6,
+      "deliverables": [
+        "docs/workflow-engine/README.md",
+        "docs/workflow-engine/features.md"
+      ],
+      "success_criteria": [
+        "API documentation complete",
+        "Usage examples provided",
+        "Migration guide if needed"
+      ],
+      "milestones": [
+        {
+          "id": "docs-1",
+          "name": "API Documentation",
+          "description": "Document new workflow engine APIs",
+          "estimated_hours": 3,
+          "dependencies": ["review-3"],
+          "deliverables": ["docs/workflow-engine/api.md"]
+        },
+        {
+          "id": "docs-2",
+          "name": "User Guide",
+          "description": "Create user guide for new features",
+          "estimated_hours": 3,
+          "dependencies": ["docs-1"],
+          "deliverables": ["docs/workflow-engine/features.md"]
+        }
+      ]
+    },
+    {
+      "phase": "completion",
+      "phase_number": 11,
+      "command": "/sparc-complete",
+      "estimated_hours": 4,
+      "deliverables": [
+        "docs/features/CF-0028/completion-report.md"
+      ],
+      "success_criteria": [
+        "All sub-issues closed",
+        "Build succeeds",
+        "All tests passing",
+        "Deployed to staging"
+      ],
+      "milestones": [
+        {
+          "id": "complete-1",
+          "name": "Final Validation",
+          "description": "Final validation of all requirements",
+          "estimated_hours": 2,
+          "dependencies": ["docs-2"],
+          "deliverables": ["docs/features/CF-0028/final-validation.md"]
+        },
+        {
+          "id": "complete-2",
+          "name": "Release Preparation",
+          "description": "Prepare for release and close sub-issues",
+          "estimated_hours": 2,
+          "dependencies": ["complete-1"],
+          "deliverables": ["docs/features/CF-0028/completion-report.md"]
+        }
+      ]
+    }
+  ],
+
+  "dependencies": {
+    "internal": [
+      {
+        "task_id": "#29",
+        "name": "Prerequisites Validation",
+        "status": "planned",
+        "blocking": false,
+        "provides": ["prerequisite validation before workflow execution"]
+      },
+      {
+        "task_id": "#31",
+        "name": "Checkpoint Enforcement",
+        "status": "planned",
+        "blocking": false,
+        "provides": ["quality gates with iteration support"],
+        "depends_on": ["#29"]
+      },
+      {
+        "task_id": "#32",
+        "name": "Iterative Tasks",
+        "status": "planned",
+        "blocking": false,
+        "provides": ["TDD red-green-refactor cycles"],
+        "depends_on": ["#31"]
+      },
+      {
+        "task_id": "#37",
+        "name": "Phase Loop-Back",
+        "status": "planned",
+        "blocking": false,
+        "provides": ["review->TDD cycle support"],
+        "depends_on": ["#32"]
+      },
+      {
+        "task_id": "#33",
+        "name": "HiveMind Workers",
+        "status": "planned",
+        "blocking": false,
+        "provides": ["parallel worker spawning"],
+        "depends_on": ["#37"]
+      },
+      {
+        "task_id": "#34",
+        "name": "Hybrid Execution Mode",
+        "status": "planned",
+        "blocking": false,
+        "provides": ["stream-chain + HiveMind integration"],
+        "depends_on": ["#33"]
+      },
+      {
+        "task_id": "#35",
+        "name": "Workflow-Level Hooks",
+        "status": "planned",
+        "blocking": false,
+        "provides": ["on-workflow-start, on-checkpoint, on-error hooks"],
+        "depends_on": ["#34"]
+      },
+      {
+        "task_id": "#36",
+        "name": "Variable Interpolation",
+        "status": "planned",
+        "blocking": false,
+        "provides": ["extended context variables"],
+        "depends_on": ["#35"]
+      }
+    ],
+    "blocks": []
+  },
+
+  "risks": [
+    {
+      "id": "risk-1",
+      "category": "technical",
+      "description": "Checkpoint enforcement with SPARC command re-invocation may cause infinite loops",
+      "probability": "medium",
+      "impact": "high",
+      "mitigation": [
+        "Implement maxIterations cap per checkpoint",
+        "Add circuit breaker pattern",
+        "Log all iterations for debugging"
+      ],
+      "contingency": "Fallback to warn-only mode if loops detected (2h estimated fix)"
+    },
+    {
+      "id": "risk-2",
+      "category": "integration",
+      "description": "HiveMind SwarmOrchestrator integration may conflict with existing patterns",
+      "probability": "low",
+      "impact": "medium",
+      "mitigation": [
+        "Thorough analysis of SwarmOrchestrator.ts",
+        "Create abstraction layer",
+        "Integration tests first"
+      ],
+      "contingency": "Use simpler parallel Promise.all pattern (4h refactor)"
+    },
+    {
+      "id": "risk-3",
+      "category": "quality",
+      "description": "Rule 10 violations in integration tests with mocked internal components",
+      "probability": "medium",
+      "impact": "high",
+      "mitigation": [
+        "Strict adherence to Rule 10 from start",
+        "Real component instantiation in integration tests",
+        "Code review checkpoints"
+      ],
+      "contingency": "Rewrite affected tests with real components (8h estimated)"
+    },
+    {
+      "id": "risk-4",
+      "category": "schedule",
+      "description": "Phase loop-back feature more complex than estimated",
+      "probability": "medium",
+      "impact": "medium",
+      "mitigation": [
+        "Break into smaller increments",
+        "Prototype first",
+        "Time-box research phase"
+      ],
+      "contingency": "Defer to separate phase if blocking (deprioritize)"
+    },
+    {
+      "id": "risk-5",
+      "category": "technical",
+      "description": "Variable interpolation edge cases cause runtime errors",
+      "probability": "low",
+      "impact": "medium",
+      "mitigation": [
+        "Comprehensive test coverage for edge cases",
+        "Safe default values",
+        "Graceful degradation"
+      ],
+      "contingency": "Fallback to original value if interpolation fails"
+    }
+  ],
+
+  "success_metrics": {
+    "code_quality": {
+      "test_coverage": {
+        "target": ">=90%",
+        "measurement": "npm run test:coverage",
+        "critical": true
+      },
+      "linting": {
+        "target": "0 errors",
+        "measurement": "npm run lint",
+        "critical": true
+      },
+      "type_safety": {
+        "target": "0 errors",
+        "measurement": "npm run typecheck",
+        "critical": true
+      }
+    },
+    "functionality": {
+      "prerequisites_validation": {
+        "target": "File and memory key validation working",
+        "measurement": "npm test -- prerequisites-validator",
+        "critical": true
+      },
+      "checkpoint_enforcement": {
+        "target": "Checkpoints enforce quality gates with iteration",
+        "measurement": "npm test -- checkpoint-enforcer",
+        "critical": true
+      },
+      "iterative_tasks": {
+        "target": "maxIterations respected with per-iteration storage",
+        "measurement": "npm test -- iterative-executor",
+        "critical": true
+      },
+      "phase_loopback": {
+        "target": "review->TDD cycle working with maxLoops",
+        "measurement": "npm test -- loopback-handler",
+        "critical": true
+      },
+      "hivemind_workers": {
+        "target": "Parallel worker spawning and coordination",
+        "measurement": "npm test -- worker-spawner",
+        "critical": false
+      },
+      "hybrid_execution": {
+        "target": "stream-chain + HiveMind hybrid mode",
+        "measurement": "npm test -- hybrid-executor",
+        "critical": false
+      },
+      "workflow_hooks": {
+        "target": "All hook types implemented",
+        "measurement": "npm test -- extended-workflow-hooks",
+        "critical": false
+      },
+      "variable_interpolation": {
+        "target": "All context variables interpolated",
+        "measurement": "npm test -- variable-interpolator",
+        "critical": false
+      }
+    },
+    "integration": {
+      "tier_1_workflow": {
+        "target": "Tier 1 SPARC workflow completes successfully",
+        "measurement": "npm run test:e2e -- sparc-tier-1",
+        "critical": true
+      },
+      "tier_2_4_workflows": {
+        "target": "Tier 2-4 SPARC workflows complete successfully",
+        "measurement": "npm run test:e2e -- sparc-tier-2-4",
+        "critical": true
+      }
+    }
+  },
+
+  "file_structure": {
+    "source_files": {
+      "src/cli/simple-commands/automation-executor.js": "Core workflow executor (enhance)",
+      "src/cli/simple-commands/prerequisites-validator.js": "Prerequisites validation module (new)",
+      "src/verification/checkpoint-enforcer.ts": "Checkpoint enforcement with iteration (new)",
+      "src/cli/simple-commands/iterative-executor.js": "Iterative task execution (new)",
+      "src/cli/simple-commands/loopback-handler.js": "Phase loop-back handler (new)",
+      "src/hive-mind/integration/worker-spawner.ts": "HiveMind worker spawning (new)",
+      "src/cli/simple-commands/hybrid-executor.js": "Hybrid execution mode (new)",
+      "src/services/agentic-flow-hooks/extended-workflow-hooks.ts": "Extended workflow hooks (new)",
+      "src/cli/simple-commands/variable-interpolator.js": "Extended variable interpolation (new)"
+    },
+    "test_files": {
+      "tests/unit/cli/prerequisites-validator.test.js": "Unit tests for prerequisites validation",
+      "tests/unit/verification/checkpoint-enforcer.test.ts": "Unit tests for checkpoint enforcement",
+      "tests/unit/cli/iterative-executor.test.js": "Unit tests for iterative execution",
+      "tests/unit/cli/loopback-handler.test.js": "Unit tests for loop-back handler",
+      "tests/unit/hive-mind/worker-spawner.test.ts": "Unit tests for worker spawning",
+      "tests/unit/cli/hybrid-executor.test.js": "Unit tests for hybrid execution",
+      "tests/unit/services/extended-workflow-hooks.test.ts": "Unit tests for extended hooks",
+      "tests/unit/cli/variable-interpolator.test.js": "Unit tests for variable interpolation",
+      "tests/integration/workflow-engine.test.js": "Integration tests for workflow engine",
+      "tests/e2e/sparc-tier-1.test.js": "E2E tests for Tier 1 workflow",
+      "tests/e2e/sparc-tier-2-4.test.js": "E2E tests for Tier 2-4 workflows"
+    },
+    "documentation": {
+      "docs/features/CF-0028/specification.md": "Feature specification",
+      "docs/features/CF-0028/architecture.md": "Architecture documentation",
+      "docs/features/CF-0028/completion-report.md": "Completion report",
+      "docs/workflow-engine/README.md": "Workflow engine documentation",
+      "docs/workflow-engine/features.md": "New features guide"
+    }
+  },
+
+  "acceptance_criteria": [
+    {
+      "id": "ac-1",
+      "description": "Prerequisites validation parses and enforces file/memory requirements",
+      "verification": "npm test -- prerequisites-validator && manual workflow test",
+      "status": "pending"
+    },
+    {
+      "id": "ac-2",
+      "description": "Checkpoint enforcement re-invokes SPARC commands until issues resolved",
+      "verification": "npm test -- checkpoint-enforcer && sparc-tdd workflow test",
+      "status": "pending"
+    },
+    {
+      "id": "ac-3",
+      "description": "Iterative tasks loop with maxIterations and per-iteration storage",
+      "verification": "npm test -- iterative-executor",
+      "status": "pending"
+    },
+    {
+      "id": "ac-4",
+      "description": "Phase loop-back jumps from review to TDD with issue context",
+      "verification": "npm test -- loopback-handler && tier-2 workflow test",
+      "status": "pending"
+    },
+    {
+      "id": "ac-5",
+      "description": "HiveMind workers spawn per hiveMindWorkers config",
+      "verification": "npm test -- worker-spawner",
+      "status": "pending"
+    },
+    {
+      "id": "ac-6",
+      "description": "Hybrid mode uses stream-chain backbone with HiveMind parallel",
+      "verification": "npm test -- hybrid-executor",
+      "status": "pending"
+    },
+    {
+      "id": "ac-7",
+      "description": "All workflow-level hooks execute with proper context",
+      "verification": "npm test -- extended-workflow-hooks",
+      "status": "pending"
+    },
+    {
+      "id": "ac-8",
+      "description": "Extended variable interpolation supports all context types",
+      "verification": "npm test -- variable-interpolator",
+      "status": "pending"
+    },
+    {
+      "id": "ac-9",
+      "description": "SPARC Tier 1-4 workflows execute successfully end-to-end",
+      "verification": "npm run test:e2e -- sparc-tier",
+      "status": "pending"
+    },
+    {
+      "id": "ac-10",
+      "description": "Test coverage >= 90% for all new modules",
+      "verification": "npm run test:coverage",
+      "status": "pending"
+    }
+  ],
+
+  "effort_summary": {
+    "specification": 6,
+    "stakeholder": 4,
+    "research": 8,
+    "pseudocode": 8,
+    "architecture": 10,
+    "refinement_tdd": 48,
+    "integration": 12,
+    "performance": 6,
+    "review": 8,
+    "documentation": 6,
+    "completion": 4,
+    "total_estimated": 120,
+    "buffer": 12,
+    "total_with_buffer": 132,
+    "confidence": "medium",
+    "notes": "Estimates assume parallel work on some sub-issues. Buffer accounts for unforeseen complexity in loop-back and checkpoint iteration features."
+  },
+
+  "deliveryPlan": {
+    "branchStrategy": "Feature branch: CF-0028-workflow-engine-feature-completeness"
+  },
+
+  "related_artifacts": {
+    "depends_on": [],
+    "blocks": [],
+    "sub_issues": ["#29", "#31", "#32", "#33", "#34", "#35", "#36", "#37"]
+  },
+
+  "next_steps": [
+    {
+      "step": 1,
+      "action": "Execute specification phase",
+      "command": "/sparc-spec",
+      "owner": "Developer"
+    },
+    {
+      "step": 2,
+      "action": "Execute stakeholder review phase",
+      "command": "/sparc-stakeholder",
+      "owner": "Developer"
+    },
+    {
+      "step": 3,
+      "action": "Execute research phase",
+      "command": "/sparc-research",
+      "owner": "Developer"
+    },
+    {
+      "step": 4,
+      "action": "Execute pseudocode phase",
+      "command": "/sparc-pseudo",
+      "owner": "Developer"
+    },
+    {
+      "step": 5,
+      "action": "Execute architecture phase",
+      "command": "/sparc-arch",
+      "owner": "Developer"
+    },
+    {
+      "step": 6,
+      "action": "Execute TDD phase for each sub-issue",
+      "command": "/sparc-tdd",
+      "owner": "Developer"
+    },
+    {
+      "step": 7,
+      "action": "Execute integration phase",
+      "command": "/sparc-integration",
+      "owner": "Developer"
+    },
+    {
+      "step": 8,
+      "action": "Execute performance phase",
+      "command": "/sparc-perf",
+      "owner": "Developer"
+    },
+    {
+      "step": 9,
+      "action": "Execute review phase",
+      "command": "/sparc-review",
+      "owner": "Developer"
+    },
+    {
+      "step": 10,
+      "action": "Execute documentation phase",
+      "command": "/sparc-docs",
+      "owner": "Developer"
+    },
+    {
+      "step": 11,
+      "action": "Execute completion phase",
+      "command": "/sparc-complete",
+      "owner": "Developer"
+    }
+  ],
+
+  "notes": [
+    "This is a Tier 4 (Enterprise/Epic) task requiring full SPARC workflow with stakeholder review",
+    "8 sub-issues identified: 4 HIGH priority (#29, #31, #32, #37), 4 MEDIUM priority (#33, #34, #35, #36)",
+    "HIGH priority features are blocking for SPARC workflow automation",
+    "MEDIUM priority features enhance but don't block workflow execution",
+    "Phase loop-back (#37) is most complex feature - requires careful design",
+    "Checkpoint enforcement (#31) is critical for quality gate enforcement",
+    "All integration tests must use real components (Rule 10 compliance)",
+    "Memory keys follow path-based specification (Rule 9): docs/features/CF-0028/*"
+  ]
+}
